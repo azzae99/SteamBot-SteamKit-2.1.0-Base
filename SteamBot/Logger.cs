@@ -6,12 +6,13 @@ namespace SteamBot
     public class Logger
     {
         private StreamWriter Stream;
-        private string Name;
+        private readonly string Name;
 
         public Logger(string BotUsername)
         {
+            Name = BotUsername;
             Directory.CreateDirectory("00_Logs");
-            Stream = File.AppendText(Path.Combine("00_Logs", BotUsername + ".log"));
+            Stream = File.AppendText(Path.Combine("00_Logs", Name + ".log"));
             Stream.AutoFlush = true;
         }
 
@@ -23,6 +24,11 @@ namespace SteamBot
         public void Info(string output, params object[] args)
         {
             OutputLine(ConsoleColor.White, String.Format("[INFO]: {0}", String.Format(output, args)));
+        }
+
+        public void Success(string output, params object[] args)
+        {
+            OutputLine(ConsoleColor.Green, String.Format("[SUCCESS]: {0}", String.Format(output, args)));
         }
 
         public void Warn(string output, params object[] args)

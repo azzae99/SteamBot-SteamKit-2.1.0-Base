@@ -1,53 +1,41 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Timers;
 using SteamKit2;
 using SteamAuth;
+using System.IO;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Xml;
 
 namespace SteamBot
 {
     public class Bot
     {
         private readonly string Username;
-        private readonly string Password;
-        private readonly string SharedSecret;
-        private readonly string IdentitySecret;
-        private readonly string DeviceID;
-        private readonly string APIKey;
-        private readonly List<Int32> Games;
 
-        private readonly Logger Log;
+        public readonly Logger Log;
 
-        private Timer CallbackTimer;
+        private System.Timers.Timer CallbackTimer;
 
         public readonly SteamClient SteamClient;
         public readonly CallbackManager CallbackManager;
         public readonly SteamUser SteamUser;
         public readonly SteamFriends SteamFriends;
-        public readonly SteamTrading SteamTrading;
         public readonly SteamUser.LogOnDetails LogOnDetails;
 
         public SteamWebClient SteamWebClient;
-        //Used to Authenticate the SteamWebClient
         private string WebAPIUserNonce;
         private string UniqueID;
 
-        //SteamAuth SteamGuardAccount from the SteamAuth library by geel9 and Jessecar96
         public readonly SteamGuardAccount SteamGuardAccount;
 
         public Bot(Configuration.BotConfiguration Config)
         {
-            CallbackTimer = new Timer();
-            CallbackTimer.Elapsed += new ElapsedEventHandler(CallbackTimer_Elapsed);
-            CallbackTimer.Interval = 500;//Half a second
+            CallbackTimer = new System.Timers.Timer();
+            CallbackTimer.Elapsed += new System.Timers.ElapsedEventHandler(CallbackTimer_Elapsed);
+            CallbackTimer.Interval = 500;
 
             Username = Config.Username;
-            Password = Config.Password;
-            SharedSecret = Config.SharedSecret;
-            IdentitySecret = Config.IdentitySecret;
-            DeviceID = Config.DeviceID;
-            APIKey = Config.APIKey;
-            Games = Config.Games;
 
             Log = new Logger(Username);
 
@@ -56,105 +44,282 @@ namespace SteamBot
             CallbackManager = new CallbackManager(SteamClient);
             SteamUser = SteamClient.GetHandler<SteamUser>();
             SteamFriends = SteamClient.GetHandler<SteamFriends>();
-            SteamTrading = SteamClient.GetHandler<SteamTrading>();
             SteamGuardAccount = new SteamGuardAccount();
 
-            if (!String.IsNullOrEmpty(SharedSecret))
-                SteamGuardAccount.SharedSecret = SharedSecret;
-            if (!String.IsNullOrEmpty(IdentitySecret))
-                SteamGuardAccount.IdentitySecret = IdentitySecret;
-            if (!String.IsNullOrEmpty(DeviceID))
-                SteamGuardAccount.DeviceID = DeviceID;
+            if (!String.IsNullOrEmpty(Config.SharedSecret))
+                SteamGuardAccount.SharedSecret = Config.SharedSecret;
 
             LogOnDetails = new SteamUser.LogOnDetails
             {
                 Username = Username,
-                Password = Password,
+                Password = Config.Password,
             };
 
-            // Subscribe to callbacks
             CallbackManager.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
             CallbackManager.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
 
             CallbackManager.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
             CallbackManager.Subscribe<SteamUser.LoggedOffCallback>(OnLoggedOff);
 
+            CallbackManager.Subscribe<SteamUser.UpdateMachineAuthCallback>(OnUpdateMachineAuth);
+
             // Handle this for when our SteamWebClient cookies expire and we need
             // to request a new WebAPIUserNonce using SteamUser.RequestWebAPIUserNonce();
             CallbackManager.Subscribe<SteamUser.WebAPIUserNonceCallback>(OnWebAPIUserNonce);
-            //Handle this to get the UniqueID for the SteamWebClient
+            // Handle this to get the UniqueID for the SteamWebClient
             CallbackManager.Subscribe<SteamUser.LoginKeyCallback>(OnLoginKey);
-
-            CallbackManager.Subscribe<SteamUser.UpdateMachineAuthCallback>(OnUpdateMachineAuth);
 
             CallbackManager.Subscribe<SteamFriends.FriendsListCallback>(OnFriendsList);
             CallbackManager.Subscribe<SteamFriends.FriendMsgCallback>(OnFriendMsg);
-
-            //Live Trading isn't supported, but we'll handle the Callbacks anyway
-            CallbackManager.Subscribe<SteamTrading.SessionStartCallback>(OnSessionStart);
-            CallbackManager.Subscribe<SteamTrading.TradeProposedCallback>(OnTradeProposed);
-            //Don't really need to handle TradeResultCallback since we don't support it, whomever manually starts the Live Trading Session
-            //should know the result
         }
 
-        private void OnTradeProposed(SteamTrading.TradeProposedCallback obj)
+        private void CallbackTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            throw new NotImplementedException();
+            // Don't need to use RunWaitCallbacks, since the timer is set on a 500ms tick
+            CallbackManager.RunCallbacks();
         }
 
-        private void OnSessionStart(SteamTrading.SessionStartCallback obj)
+        public void StartBot()
         {
-            throw new NotImplementedException();
+            Log.Info("Connecting to Steam...");
+            if (!SteamClient.IsConnected)
+                SteamClient.Connect();
+            else
+                Log.Warn("Already Connected to Steam...");
+            CallbackTimer.Start();
         }
 
-        private void OnFriendMsg(SteamFriends.FriendMsgCallback obj)
+        public void StopBot()
         {
-            throw new NotImplementedException();
+            Log.Info("Disconnecting from Steam...");
+            if (SteamClient.IsConnected)
+                SteamClient.Disconnect();
+            else
+                Log.Warn("Already Disconnected from Steam...");
+            CallbackManager.RunWaitAllCallbacks(TimeSpan.Zero);
         }
 
-        private void OnFriendsList(SteamFriends.FriendsListCallback obj)
+        private void OnConnected(SteamClient.ConnectedCallback Callback)
         {
-            throw new NotImplementedException();
+            // Normally you'd check the EResult of the Callback to verify if the bot actually
+            // connected or not, but it seems to have been removed...
+            if (Callback != null)
+            {
+                Log.Success("Connection to Steam established!");
+
+                if (!String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
+                    LogOnDetails.TwoFactorCode = SteamGuardAccount.GenerateSteamGuardCode();
+                else if (File.Exists(String.Format(@"00_AuthFiles\{0}.auth", Username)))
+                {
+                    SHA1 SHA = SHA1.Create();
+                    LogOnDetails.SentryFileHash = SHA.ComputeHash(File.ReadAllBytes(String.Format(@"00_AuthFiles\{0}.auth", Username)));
+                }
+
+                Log.Info("Logging In to Steam...");
+                SteamUser.LogOn(LogOnDetails);
+            }
         }
 
-        private void OnUpdateMachineAuth(SteamUser.UpdateMachineAuthCallback obj)
+        private void OnDisconnected(SteamClient.DisconnectedCallback Callback)
         {
-            throw new NotImplementedException();
+            if (!Callback.UserInitiated)
+            {
+                Log.Warn("Connection to Steam has been lost, retrying in 20 seconds...");
+                CallbackTimer.Stop();
+                Thread.Sleep(20000);
+                SteamClient.Connect();
+                CallbackTimer.Start();
+            }
+            else
+            {
+                Log.Info("Connection to Steam has been lost (user initiated), not retrying...");
+                CallbackTimer.Stop();
+            }
         }
 
-        private void OnLoginKey(SteamUser.LoginKeyCallback obj)
+        private void OnLoggedOn(SteamUser.LoggedOnCallback Callback)
         {
-            throw new NotImplementedException();
+            Log.Debug("Received LoggedOn Callback, Result: {0}...", Callback.Result);
+
+            if (Callback.Result == EResult.OK)
+            {
+                WebAPIUserNonce = Callback.WebAPIUserNonce;
+                Log.Success("Successfully Logged On to Steam!");
+            }
+            else
+            {
+                // Stop the Timer so it doesn't handle any Callbacks (such as trying to Re-Connect and LogIn)
+                CallbackTimer.Stop();
+
+                if (Callback.Result == EResult.AccountLogonDenied)
+                {
+                    Log.Warn("This Account is protected by Steam Guard Email Authenticator...");
+                    Log.Prompt("Please enter the Email Authentication Code for {0}, with an Email Address ending in {1}:", Username, Callback.EmailDomain);
+                    while (String.IsNullOrEmpty(LogOnDetails.AuthCode))
+                        LogOnDetails.AuthCode = Console.ReadLine();
+                }
+                else if (Callback.Result == EResult.InvalidLoginAuthCode)
+                {
+                    string OldAuthCode = LogOnDetails.AuthCode;
+                    Log.Error("The Email Authentication Code, {0}, provided for {1} is incorrect...", Username, OldAuthCode);
+                    Log.Prompt("Please enter the Email Authentication Code for {0}, with an Email Address ending in {1}:", Username, Callback.EmailDomain);
+                    while (LogOnDetails.AuthCode == OldAuthCode)
+                        LogOnDetails.AuthCode = Console.ReadLine();
+                }
+                else if (Callback.Result == EResult.ExpiredLoginAuthCode)
+                {
+                    string OldAuthCode = LogOnDetails.AuthCode;
+                    Log.Error("The Email Authentication Code, {0}, provided for {1} has expired...", Username, OldAuthCode);
+                    Log.Prompt("Please enter the Email Authentication Code for {0}, with an Email Address ending in {1}:", Username, Callback.EmailDomain);
+                    while (LogOnDetails.AuthCode == OldAuthCode)
+                        LogOnDetails.AuthCode = Console.ReadLine();
+                }
+                else if (Callback.Result == EResult.AccountLoginDeniedNeedTwoFactor)
+                {
+                    Log.Warn("This Account is protected by Steam Guard Mobile Authenticator...");
+                    Log.Info("You can allow this Bot to generate its own 2FA / Mobile Authenticator Codes by specifying a SharedSecret in the Config...");
+                    Log.Prompt("Please enter the 2-Factor Authentication Code for {0}:", Username);
+                    while (String.IsNullOrEmpty(LogOnDetails.TwoFactorCode))
+                        LogOnDetails.TwoFactorCode = Console.ReadLine();
+                }
+                else if (Callback.Result == EResult.TwoFactorCodeMismatch)
+                {
+                    if (!String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
+                        LogOnDetails.TwoFactorCode = SteamGuardAccount.GenerateSteamGuardCode();
+                    else
+                    {
+                        string OldTwoFactorCode = LogOnDetails.TwoFactorCode;
+                        Log.Error("The 2-Factor Authentication Code, {0}, provided for {1} is incorrect or has expired...", Username, OldTwoFactorCode);
+                        Log.Prompt("Please enter the 2-Factor Authentication Code for {0}:", Username);
+                        while (LogOnDetails.TwoFactorCode == OldTwoFactorCode)
+                            LogOnDetails.TwoFactorCode = Console.ReadLine();
+                    }
+                }
+
+                else if (Callback.Result == EResult.ServiceUnavailable || Callback.Result == EResult.TryAnotherCM)
+                    Log.Warn("Failed to Log On to Steam, Steam may be down due to maintenance or high load...");
+                else
+                    Log.Warn("Failed to Log On to Steam, Result: {0}...", Callback.Result);
+
+                CallbackTimer.Start();
+            }
         }
 
-        private void OnWebAPIUserNonce(SteamUser.WebAPIUserNonceCallback obj)
+        private void OnLoggedOff(SteamUser.LoggedOffCallback Callback)
         {
-            throw new NotImplementedException();
+            Log.Warn("Logged Off of Steam, Result: {0}...", Callback.Result);
         }
 
-        private void OnLoggedOff(SteamUser.LoggedOffCallback obj)
+        private void OnUpdateMachineAuth(SteamUser.UpdateMachineAuthCallback Callback)
         {
-            throw new NotImplementedException();
+            Log.Info("Creating Machine Auth File...");
+
+            SHA1 SHA = SHA1.Create();
+            byte[] SentryHash = SHA.ComputeHash(Callback.Data);
+
+            Directory.CreateDirectory("00_AuthFiles");
+            File.WriteAllBytes(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username)), Callback.Data);
+
+            SteamUser.MachineAuthDetails MachineAuthDetails = new SteamUser.MachineAuthDetails
+            {
+                BytesWritten = Callback.BytesToWrite,
+                FileName = Callback.FileName,
+                FileSize = Callback.BytesToWrite,
+                Offset = Callback.Offset,
+                // The SHA1 Hash we calculated earlier from the Callback Data
+                SentryFileHash = SentryHash,
+                OneTimePassword = Callback.OneTimePassword,
+                LastError = 0,
+                Result = EResult.OK,
+                JobID = Callback.JobID,
+            };
+
+            Log.Success("Successfully created Machine Auth File!");
+
+            SteamUser.SendMachineAuthResponse(MachineAuthDetails);
         }
 
-        private void OnLoggedOn(SteamUser.LoggedOnCallback obj)
+        private void OnWebAPIUserNonce(SteamUser.WebAPIUserNonceCallback Callback)
         {
-            throw new NotImplementedException();
+            if (Callback.Result == EResult.OK)
+            {
+                if (WebAPIUserNonce == Callback.Nonce)
+                {
+                    Log.Warn("Received duplicate WebAPIUserNonce, waiting 30 seconds before attempting to request a new one...");
+                    Thread.Sleep(30000);
+                    SteamUser.RequestWebAPIUserNonce();
+                }
+                else
+                {
+                    WebAPIUserNonce = Callback.Nonce;
+                    if (!String.IsNullOrEmpty(UniqueID))
+                        AuthenticateSteamWebClient();
+                }
+            }
+            else
+                Log.Error("WebAPIUserNonceCallback Error, Result: {0}...", Callback.Result);
         }
 
-        private void OnDisconnected(SteamClient.DisconnectedCallback obj)
+        private void OnLoginKey(SteamUser.LoginKeyCallback Callback)
         {
-            throw new NotImplementedException();
+            UniqueID = Callback.UniqueID.ToString();
+            if (!String.IsNullOrEmpty(WebAPIUserNonce))
+                AuthenticateSteamWebClient();
+
+            // The bot is essentially fully logged in here...
+            SteamFriends.SetPersonaState(EPersonaState.Online);
         }
 
-        private void OnConnected(SteamClient.ConnectedCallback obj)
+        private void OnFriendsList(SteamFriends.FriendsListCallback Callback)
         {
-            throw new NotImplementedException();
+            foreach (SteamFriends.FriendsListCallback.Friend friend in Callback.FriendList)
+            {
+                // Groups are included in the FriendsListCallback, so we also check if it's pending,
+                // meaning we have been invited to the group
+                if (friend.SteamID.AccountType == EAccountType.Clan && friend.Relationship == EFriendRelationship.RequestRecipient)
+                {
+                    // Because we're working with a group rather than a user, it's quite difficult to actually get the name of it
+                    // since there's no WebAPI Endpoints that we can use to get it nor any such implementation in SteamKit2
+                    XmlDocument XML = new XmlDocument();
+                    XML.Load(String.Format("steamcommunity.com/gid/{0}/memberslistxml?xml=1&p=99999", friend.SteamID));
+                    Log.Info("Received Group Invite to {0} ({1}), ignoring...", XML.DocumentElement.SelectSingleNode("/memberList/groupDetails/groupName").InnerText, friend.SteamID);
+                }
+                else if (friend.SteamID.AccountType != EAccountType.Clan)
+                {
+                    if (friend.SteamID.AccountType == EAccountType.Individual)
+                    {
+                        if (friend.Relationship == EFriendRelationship.RequestRecipient)
+                            Log.Info("{0} ({1}) added us to their friends list, ignoring...", SteamFriends.GetFriendPersonaName(friend.SteamID), friend.SteamID.ConvertToUInt64());
+                        else if (friend.Relationship == EFriendRelationship.None)
+                            Log.Info("{0} ({1}) removed us from their friends list...", SteamFriends.GetFriendPersonaName(friend.SteamID), friend.SteamID.ConvertToUInt64());
+                    }
+                }
+            }
         }
 
-        private void CallbackTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private void OnFriendMsg(SteamFriends.FriendMsgCallback Callback)
         {
-            throw new NotImplementedException();
+            if (Callback.EntryType == EChatEntryType.ChatMsg)
+            {
+                Log.Info("Chat Message received from {0} ({1}): {2}", SteamFriends.GetFriendPersonaName(Callback.Sender), Callback.Sender.ConvertToUInt64(), Callback.Message);
+            }
+        }
+
+
+        private void AuthenticateSteamWebClient()
+        {
+            bool IsAuthenticated = false;
+            do
+            {
+                IsAuthenticated = SteamWebClient.Authenticate(UniqueID, SteamClient, WebAPIUserNonce);
+                if (!IsAuthenticated)
+                {
+                    Log.Warn("Failed to Authenticate SteamWebClient, retrying in 10 seconds...");
+                    Thread.Sleep(10000);
+                }
+            }
+            while (!IsAuthenticated);
+            Log.Success("SteamWebClient Authenticated!");
         }
     }
 }

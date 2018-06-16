@@ -2,7 +2,7 @@
 using System.Net;
 using SteamKit2;
 using System.Text;
-//System.Web must be added as a reference from the framework assemblies
+// System.Web must be added as a reference from the framework assemblies
 using System.Web;
 using System.Collections.Specialized;
 using System.Net.Cache;
@@ -28,10 +28,10 @@ namespace SteamBot
 
             using (dynamic SteamUserAuth = WebAPI.GetInterface("ISteamUserAuth"))
             {
-                //Generate AES Session Key
+                // Generate AES Session Key
                 byte[] SessionKey = CryptoHelper.GenerateRandomBlock(32);
 
-                //RSA Encrypt the SessionKey with Steam's Public RSA Key for our Account's Universe
+                // RSA Encrypt the SessionKey with Steam's Public RSA Key for our Account's Universe
                 byte[] EncryptedSessionKey = null;
                 using (RSACrypto Crypto = new RSACrypto(KeyDictionary.GetPublicKey(Client.Universe)))
                     EncryptedSessionKey = Crypto.Encrypt(SessionKey);
@@ -39,7 +39,7 @@ namespace SteamBot
                 byte[] LoginKey = new byte[20];
                 Array.Copy(Encoding.ASCII.GetBytes(WebAPIUserNonce), LoginKey, WebAPIUserNonce.Length);
 
-                //AES Encrypt the LoginKey with our SessionKey
+                // AES Encrypt the LoginKey with our SessionKey
                 byte[] EncryptedLoginKey = CryptoHelper.SymmetricEncrypt(LoginKey, SessionKey);
 
                 KeyValue AuthResult;
@@ -62,12 +62,12 @@ namespace SteamBot
                 Token = AuthResult["token"].AsString();
                 TokenSecure = AuthResult["tokensecure"].AsString();
 
-                //Add Cookies for SteamCommunity
+                // Add Cookies for SteamCommunity
                 Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamCommunityDomain));
                 Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamCommunityDomain));
                 Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamCommunityDomain));
 
-                //Add Cookies for SteamPowered
+                // Add Cookies for SteamPowered
                 Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamPoweredDomain));
                 Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamPoweredDomain));
                 Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamPoweredDomain));
@@ -83,16 +83,16 @@ namespace SteamBot
         {
             try
             {
-                //Convert Data to a Query String with URL Parameters
+                // Convert Data to a Query String with URL Parameters
                 string QueryString = (Data == null ? null : String.Join("&", Array.ConvertAll(Data.AllKeys, Key =>
                     String.Format("{0}={1}", HttpUtility.UrlEncode(Key), HttpUtility.UrlEncode(Data[Key]))
                 )));
 
-                //Add QueryString to URL if it exists
+                // Add QueryString to URL if it exists
                 if (Method == "GET" && !String.IsNullOrEmpty(QueryString))
                     URL += (URL.Contains("?") ? "&" : "?") + QueryString;
 
-                //Create the Request
+                // Create the Request
                 HttpWebRequest Request = (HttpWebRequest)WebRequest.Create(URL);
                 Request.Method = Method;
                 Request.Accept = "application/json, application/xml, text/html, application/xhtml+xml, text/javascript;q=0.9, */*;q=0.5";
@@ -102,10 +102,10 @@ namespace SteamBot
                 Request.Timeout = 15000;
                 Request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Revalidate);
                 Request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-                //These are normally set for AJAX, but there's no real reason to disable it
+                // These are normally set for AJAX, but there's no real reason to disable it
                 Request.Headers.Add("X-Requested-With", "XMLHttpRequest");
                 Request.Headers.Add("X-Prototype-Version", "1.7");
-                //Add our Cookies
+                // Add our Cookies
                 Request.CookieContainer = Cookies;
 
                 if (Method == "POST" && !String.IsNullOrEmpty(QueryString))
