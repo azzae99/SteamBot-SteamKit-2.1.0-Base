@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Net;
-using SteamKit2;
-using System.Text;
-// System.Web must be added as a reference from the framework assemblies
-using System.Web;
 using System.Collections.Specialized;
-using System.Net.Cache;
 using System.IO;
+using System.Net;
+using System.Net.Cache;
+using System.Text;
+using System.Web;
+using SteamKit2;
 
 namespace SteamBot
 {

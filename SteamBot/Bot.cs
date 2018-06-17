@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using SteamKit2;
-using SteamAuth;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
+using SteamKit2;
+using SteamAuth;
 
 namespace SteamBot
 {
@@ -148,7 +147,7 @@ namespace SteamBot
             }
             else
             {
-                // Stop the Timer so it doesn't handle any Callbacks (such as trying to Re-Connect and LogIn)
+                // Stop the Timer so it doesn't handle any Callbacks (such as trying to Re-Connect and LogOn)
                 CallbackTimer.Stop();
 
                 if (Callback.Result == EResult.AccountLogonDenied)
@@ -212,7 +211,8 @@ namespace SteamBot
 
         private void OnUpdateMachineAuth(SteamUser.UpdateMachineAuthCallback Callback)
         {
-            Log.Info("Creating Machine Auth File...");
+            if (String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
+                Log.Info("Creating Machine Auth File...");
 
             SHA1 SHA = SHA1.Create();
             byte[] SentryHash = SHA.ComputeHash(Callback.Data);
@@ -234,7 +234,8 @@ namespace SteamBot
                 JobID = Callback.JobID,
             };
 
-            Log.Success("Successfully created Machine Auth File!");
+            if (String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
+                Log.Success("Successfully created Machine Auth File!");
 
             SteamUser.SendMachineAuthResponse(MachineAuthDetails);
         }
@@ -279,10 +280,10 @@ namespace SteamBot
                 if (friend.SteamID.AccountType == EAccountType.Clan && friend.Relationship == EFriendRelationship.RequestRecipient)
                 {
                     // Because we're working with a group rather than a user, it's quite difficult to actually get the name of it
-                    // since there's no WebAPI Endpoints that we can use to get it nor any such implementation in SteamKit2
+                    // since there's no WebAPI Endpoints that we can use to get it, nor any such implementation in SteamKit2
                     XmlDocument XML = new XmlDocument();
-                    XML.Load(String.Format("steamcommunity.com/gid/{0}/memberslistxml?xml=1&p=99999", friend.SteamID));
-                    Log.Info("Received Group Invite to {0} ({1}), ignoring...", XML.DocumentElement.SelectSingleNode("/memberList/groupDetails/groupName").InnerText, friend.SteamID);
+                    XML.Load(String.Format("https://steamcommunity.com/gid/{0}/memberslistxml?xml=1&p=99999", friend.SteamID.ConvertToUInt64()));
+                    Log.Info("Received Group Invite to {0} ({1}), ignoring...", XML.DocumentElement.SelectSingleNode("/memberList/groupDetails/groupName").InnerText, friend.SteamID.ConvertToUInt64());
                 }
                 else if (friend.SteamID.AccountType != EAccountType.Clan)
                 {
