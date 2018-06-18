@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
@@ -144,6 +145,11 @@ namespace SteamBot
             {
                 WebAPIUserNonce = Callback.WebAPIUserNonce;
                 Log.Success("Successfully Logged On to Steam!");
+
+                // The bot is logged on here, however, if you want / need to wait for
+                // the SteamWebClient to be authenticated, it gets authenticated in
+                // OnLoginKey
+                SteamFriends.SetPersonaState(EPersonaState.Online);
             }
             else
             {
@@ -253,8 +259,7 @@ namespace SteamBot
                 else
                 {
                     WebAPIUserNonce = Callback.Nonce;
-                    if (!String.IsNullOrEmpty(UniqueID))
-                        AuthenticateSteamWebClient();
+                    AuthenticateSteamWebClient();
                 }
             }
             else
@@ -264,11 +269,7 @@ namespace SteamBot
         private void OnLoginKey(SteamUser.LoginKeyCallback Callback)
         {
             UniqueID = Callback.UniqueID.ToString();
-            if (!String.IsNullOrEmpty(WebAPIUserNonce))
-                AuthenticateSteamWebClient();
-
-            // The bot is essentially fully logged in here...
-            SteamFriends.SetPersonaState(EPersonaState.Online);
+            AuthenticateSteamWebClient();
         }
 
         private void OnFriendsList(SteamFriends.FriendsListCallback Callback)

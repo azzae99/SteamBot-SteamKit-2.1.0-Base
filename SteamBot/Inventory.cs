@@ -32,7 +32,7 @@ namespace SteamBot
 
                     Success = inv.Success;
 
-                    if (!inv.Success)
+                    if (!Success)
                     {
                         Error = inv.Error;
                         continue;
@@ -203,6 +203,474 @@ namespace SteamBot
 
             [JsonProperty("color")]
             public string Color { get; set; }
+        }
+    }
+
+    public class TF2Inventory
+    {
+        private SteamWebClient SteamWebClient;
+
+        public List<item> Items = new List<item>();
+        public int Num_Backpack_Slots;
+        public bool Status;
+        public string Error;
+
+        public TF2Inventory(ref SteamWebClient Client)
+        {
+            SteamWebClient = Client;
+        }
+
+        public void LoadInventory(SteamID User, string APIKey)
+        {
+            try
+            {
+                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconItems_440/GetPlayerItems/v1/?key={0}&steamid={1}",
+                    APIKey, User.ConvertToUInt64()), "GET"));
+
+                Status = inv.Result.Status;
+
+                if (!Status)
+                {
+                    Error = inv.Result.StatusDetail;
+                    return;
+                }
+
+                if (inv.Result.Items != null)
+                    Items = inv.Result.Items.ToList();
+
+                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+        }
+
+        public class inventory
+        {
+            [JsonProperty("result")]
+            public result Result { get; set; }
+        }
+
+        public class result
+        {
+            [JsonProperty("status")]
+            public bool Status { get; set; }
+
+            [JsonProperty("statusDetail")]
+            public string StatusDetail { get; set; }
+
+            [JsonProperty("num_backpack_slots")]
+            public int Num_Backpack_Slots { get; set; }
+
+            [JsonProperty("items")]
+            public item[] Items { get; set; }
+        }
+
+        public class item
+        {
+            [JsonProperty("id")]
+            public long ID { get; set; }
+
+            [JsonProperty("original_id")]
+            public long Original_ID { get; set; }
+
+            [JsonProperty("defindex")]
+            public int DefIndex { get; set; }
+
+            [JsonProperty("level")]
+            public int Level { get; set; }
+
+            [JsonProperty("quality")]
+            public int Quality { get; set; }
+
+            [JsonProperty("inventory")]
+            public long Inventory { get; set; }
+
+            [JsonProperty("quantity")]
+            public int Quantity { get; set; }
+
+            [JsonProperty("origin")]
+            public int Origin { get; set; }
+
+            [JsonProperty("style")]
+            public int Style { get; set; }
+
+            [JsonProperty("equipped")]
+            public equipped[] Equipped { get; set; }
+
+            [JsonProperty("flag_cannot_trade")]
+            public bool Flag_Cannot_Trade { get; set; }
+
+            [JsonProperty("attributes")]
+            public attribute[] Attributes { get; set; }
+        }
+
+        public class equipped
+        {
+            [JsonProperty("class")]
+            public int Class { get; set; }
+            
+            [JsonProperty("slot")]
+            public int Slot { get; set; }
+        }
+
+        public class attribute
+        {
+            [JsonProperty("defindex")]
+            public int DefIndex { get; set; }
+
+            [JsonProperty("value")]
+            public string Value { get; set; }
+
+            [JsonProperty("float_value")]
+            public float Float_Value { get; set; }
+        }
+    }
+
+    public class Dota2Inventory
+    {
+        private SteamWebClient SteamWebClient;
+
+        public List<item> Items = new List<item>();
+        public int Num_Backpack_Slots;
+        public bool Status;
+        public string Error;
+
+        public Dota2Inventory(ref SteamWebClient Client)
+        {
+            SteamWebClient = Client;
+        }
+
+        public void LoadInventory(SteamID User, string APIKey)
+        {
+            try
+            {
+                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconItems_570/GetPlayerItems/v1/?key={0}&steamid={1}",
+                    APIKey, User.ConvertToUInt64()), "GET"));
+
+                Status = inv.Result.Status;
+
+                if (!Status)
+                {
+                    Error = inv.Result.StatusDetail;
+                    return;
+                }
+
+                if (inv.Result.Items != null)
+                    Items = inv.Result.Items.ToList();
+
+                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+        }
+
+        public class inventory
+        {
+            [JsonProperty("result")]
+            public result Result { get; set; }
+        }
+
+        public class result
+        {
+            [JsonProperty("status")]
+            public bool Status { get; set; }
+
+            [JsonProperty("statusDetail")]
+            public string StatusDetail { get; set; }
+
+            [JsonProperty("num_backpack_slots")]
+            public int Num_Backpack_Slots { get; set; }
+
+            [JsonProperty("items")]
+            public item[] Items { get; set; }
+        }
+
+        public class item
+        {
+            [JsonProperty("id")]
+            public long ID { get; set; }
+
+            [JsonProperty("original_id")]
+            public long Original_ID { get; set; }
+
+            [JsonProperty("defindex")]
+            public int DefIndex { get; set; }
+
+            [JsonProperty("level")]
+            public int Level { get; set; }
+
+            [JsonProperty("quality")]
+            public int Quality { get; set; }
+
+            [JsonProperty("inventory")]
+            public long Inventory { get; set; }
+
+            [JsonProperty("quantity")]
+            public int Quantity { get; set; }
+
+            [JsonProperty("style")]
+            public int Style { get; set; }
+
+            [JsonProperty("equipped")]
+            public equipped[] Equipped { get; set; }
+
+            [JsonProperty("flag_cannot_trade")]
+            public bool Flag_Cannot_Trade { get; set; }
+
+            [JsonProperty("flag_cannot_craft")]
+            public bool Flag_Cannot_Craft { get; set; }
+
+            [JsonProperty("attributes")]
+            public attribute[] Attributes { get; set; }
+        }
+
+        public class equipped
+        {
+            [JsonProperty("class")]
+            public int Class { get; set; }
+
+            [JsonProperty("slot")]
+            public int Slot { get; set; }
+        }
+
+        public class attribute
+        {
+            [JsonProperty("defindex")]
+            public int DefIndex { get; set; }
+
+            [JsonProperty("value")]
+            public string Value { get; set; }
+
+            [JsonProperty("float_value")]
+            public float Float_Value { get; set; }
+        }
+    }
+
+    public class Portal2Inventory
+    {
+        private SteamWebClient SteamWebClient;
+
+        public List<item> Items = new List<item>();
+        public int Num_Backpack_Slots;
+        public bool Status;
+        public string Error;
+
+        public Portal2Inventory(ref SteamWebClient Client)
+        {
+            SteamWebClient = Client;
+        }
+
+        public void LoadInventory(SteamID User, string APIKey)
+        {
+            try
+            {
+                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconItems_620/GetPlayerItems/v1/?key={0}&steamid={1}",
+                    APIKey, User.ConvertToUInt64()), "GET"));
+
+                Status = inv.Result.Status;
+
+                if (!Status)
+                {
+                    Error = inv.Result.StatusDetail;
+                    return;
+                }
+
+                if (inv.Result.Items != null)
+                    Items = inv.Result.Items.ToList();
+
+                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+        }
+
+        public class inventory
+        {
+            [JsonProperty("result")]
+            public result Result { get; set; }
+        }
+
+        public class result
+        {
+            [JsonProperty("status")]
+            public bool Status { get; set; }
+
+            [JsonProperty("statusDetail")]
+            public string StatusDetail { get; set; }
+
+            [JsonProperty("num_backpack_slots")]
+            public int Num_Backpack_Slots { get; set; }
+
+            [JsonProperty("items")]
+            public item[] Items { get; set; }
+        }
+
+        public class item
+        {
+            [JsonProperty("id")]
+            public long ID { get; set; }
+
+            [JsonProperty("original_id")]
+            public long Original_ID { get; set; }
+
+            [JsonProperty("defindex")]
+            public int DefIndex { get; set; }
+
+            [JsonProperty("level")]
+            public int Level { get; set; }
+
+            [JsonProperty("quality")]
+            public int Quality { get; set; }
+
+            [JsonProperty("inventory")]
+            public long Inventory { get; set; }
+
+            [JsonProperty("quantity")]
+            public int Quantity { get; set; }
+
+            [JsonProperty("origin")]
+            public int Origin { get; set; }
+
+            [JsonProperty("equipped")]
+            public equipped[] Equipped { get; set; }
+
+            [JsonProperty("flag_cannot_trade")]
+            public bool Flag_Cannot_Trade { get; set; }
+
+            [JsonProperty("flag_cannot_craft")]
+            public bool Flag_Cannot_Craft { get; set; }
+        }
+
+        public class equipped
+        {
+            [JsonProperty("class")]
+            public int Class { get; set; }
+
+            [JsonProperty("slot")]
+            public int Slot { get; set; }
+        }
+    }
+
+    public class BattleBlockTheaterInventory
+    {
+        private SteamWebClient SteamWebClient;
+
+        public List<item> Items = new List<item>();
+        public int Num_Backpack_Slots;
+        public bool Status;
+        public string Error;
+
+        public BattleBlockTheaterInventory(ref SteamWebClient Client)
+        {
+            SteamWebClient = Client;
+        }
+
+        public void LoadInventory(SteamID User, string APIKey)
+        {
+            try
+            {
+                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconItems_238460/GetPlayerItems/v1/?key={0}&steamid={1}",
+                    APIKey, User.ConvertToUInt64()), "GET"));
+
+                Status = inv.Result.Status;
+
+                if (!Status)
+                {
+                    Error = inv.Result.StatusDetail;
+                    return;
+                }
+
+                if (inv.Result.Items != null)
+                    Items = inv.Result.Items.ToList();
+
+                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+        }
+
+        public class inventory
+        {
+            [JsonProperty("result")]
+            public result Result { get; set; }
+        }
+
+        public class result
+        {
+            [JsonProperty("status")]
+            public bool Status { get; set; }
+
+            [JsonProperty("statusDetail")]
+            public string StatusDetail { get; set; }
+
+            [JsonProperty("num_backpack_slots")]
+            public int Num_Backpack_Slots { get; set; }
+
+            [JsonProperty("items")]
+            public item[] Items { get; set; }
+        }
+
+        public class item
+        {
+            [JsonProperty("id")]
+            public long ID { get; set; }
+
+            [JsonProperty("original_id")]
+            public long Original_ID { get; set; }
+
+            [JsonProperty("icon_url")]
+            public string Icon_URL { get; set; }
+
+            [JsonProperty("background_color")]
+            public string Background_Color { get; set; }
+
+            [JsonProperty("name_color")]
+            public string Name_Color { get; set; }
+
+            [JsonProperty("tradable")]
+            public bool Tradable { get; set; }
+
+            [JsonProperty("marketable")]
+            public bool Marketable { get; set; }
+
+            [JsonProperty("market_tradable_restriction")]
+            public int Market_Tradable_Restriction { get; set; }
+
+            [JsonProperty("stacksize")]
+            public int StackSize { get; set; }
+
+            [JsonProperty("commodity")]
+            public bool Commodity { get; set; }
+
+            [JsonProperty("name")]
+            public string Name { get; set; }
+
+            [JsonProperty("descriptions")]
+            public description[] Descriptions { get; set; }
+        }
+
+        public class description
+        {
+            [JsonProperty("value")]
+            public string Value { get; set; }
+
+            [JsonProperty("color")]
+            public string Color { get; set; }
+
+            [JsonProperty("type")]
+            public string Type { get; set; }
         }
     }
 }
