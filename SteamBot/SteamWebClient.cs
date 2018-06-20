@@ -124,5 +124,14 @@ namespace SteamBot
                 return ex.Message;
             }
         }
+
+        public bool CheckCookies()
+        {
+            string SteamCommunity = Request("https://steamcommunity.com/", "GET");
+            string SteamPowered = Request("https://store.steampowered.com/", "GET");
+            if (SteamCommunity.Contains("g_steamID") && !SteamPowered.Contains("var g_AccountID = 0;"))
+                return true;
+            return false;
+        }
     }
 }

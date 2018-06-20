@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
@@ -75,8 +74,7 @@ namespace SteamBot
 
         private void CallbackTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            // Don't need to use RunWaitCallbacks, since the timer is set on a 500ms tick
-            CallbackManager.RunCallbacks();
+            CallbackManager.RunWaitAllCallbacks(TimeSpan.Zero);
         }
 
         public void StartBot()
@@ -93,10 +91,16 @@ namespace SteamBot
         {
             Log.Info("Disconnecting from Steam...");
             if (SteamClient.IsConnected)
+            {
                 SteamClient.Disconnect();
+                CallbackManager.RunWaitAllCallbacks(TimeSpan.Zero);
+            }
             else
+            {
                 Log.Warn("Already Disconnected from Steam...");
-            CallbackManager.RunWaitAllCallbacks(TimeSpan.Zero);
+                CallbackTimer.Stop();
+            }
+            
         }
 
         private void OnConnected(SteamClient.ConnectedCallback Callback)
@@ -145,11 +149,6 @@ namespace SteamBot
             {
                 WebAPIUserNonce = Callback.WebAPIUserNonce;
                 Log.Success("Successfully Logged On to Steam!");
-
-                // The bot is logged on here, however, if you want / need to wait for
-                // the SteamWebClient to be authenticated, it gets authenticated in
-                // OnLoginKey
-                SteamFriends.SetPersonaState(EPersonaState.Online);
             }
             else
             {
@@ -270,6 +269,8 @@ namespace SteamBot
         {
             UniqueID = Callback.UniqueID.ToString();
             AuthenticateSteamWebClient();
+
+            SteamFriends.SetPersonaState(EPersonaState.Online);
         }
 
         private void OnFriendsList(SteamFriends.FriendsListCallback Callback)
