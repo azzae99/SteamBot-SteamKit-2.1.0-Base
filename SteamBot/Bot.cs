@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
@@ -20,7 +21,10 @@ namespace SteamBot
         public readonly CallbackManager CallbackManager;
         public readonly SteamUser SteamUser;
         public readonly SteamFriends SteamFriends;
+        public readonly SteamTrading SteamTrading;
         public readonly SteamUser.LogOnDetails LogOnDetails;
+
+        public readonly PacketMsgHandler PacketMsgHandler;
 
         public SteamWebClient SteamWebClient;
         private string WebAPIUserNonce;
@@ -43,7 +47,11 @@ namespace SteamBot
             CallbackManager = new CallbackManager(SteamClient);
             SteamUser = SteamClient.GetHandler<SteamUser>();
             SteamFriends = SteamClient.GetHandler<SteamFriends>();
+            SteamTrading = SteamClient.GetHandler<SteamTrading>();
             SteamGuardAccount = new SteamGuardAccount();
+
+            SteamClient.AddHandler(new PacketMsgHandler());
+            PacketMsgHandler = SteamClient.GetHandler<PacketMsgHandler>();
 
             if (!String.IsNullOrEmpty(Config.SharedSecret))
                 SteamGuardAccount.SharedSecret = Config.SharedSecret;
@@ -62,10 +70,7 @@ namespace SteamBot
 
             CallbackManager.Subscribe<SteamUser.UpdateMachineAuthCallback>(OnUpdateMachineAuth);
 
-            // Handle this for when our SteamWebClient cookies expire and we need
-            // to request a new WebAPIUserNonce using SteamUser.RequestWebAPIUserNonce();
             CallbackManager.Subscribe<SteamUser.WebAPIUserNonceCallback>(OnWebAPIUserNonce);
-            // Handle this to get the UniqueID for the SteamWebClient
             CallbackManager.Subscribe<SteamUser.LoginKeyCallback>(OnLoginKey);
 
             CallbackManager.Subscribe<SteamFriends.FriendsListCallback>(OnFriendsList);

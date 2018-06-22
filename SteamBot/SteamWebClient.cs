@@ -97,7 +97,8 @@ namespace SteamBot
                 Request.Accept = "application/json, application/xml, text/html, application/xhtml+xml, text/javascript;q=0.9, */*;q=0.5";
                 Request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
                 Request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36";
-                Request.Referer = String.IsNullOrEmpty(Referer) ? "https://steamcommunity.com/trade/1" : Referer;
+                if (!String.IsNullOrEmpty(Referer))
+                    Request.Referer = Referer;
                 Request.Timeout = 15000;
                 Request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Revalidate);
                 Request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;

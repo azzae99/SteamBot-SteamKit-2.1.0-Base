@@ -11,7 +11,7 @@ namespace SteamBot
         private SteamWebClient SteamWebClient;
 
         public List<Tuple<asset, description>> Items = new List<Tuple<asset, description>>();
-        public int Total_Inventory_Count;
+        public uint Total_Inventory_Count;
         public bool Success;
         public string Error;
 
@@ -20,7 +20,7 @@ namespace SteamBot
             SteamWebClient = Client;
         }
 
-        public void LoadInventory(int AppID, IEnumerable<int> ContextIDs, SteamID User, long StartAssetID = 0)
+        public void LoadInventory(int AppID, IEnumerable<int> ContextIDs, SteamID User, ulong StartAssetID = 0)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace SteamBot
             public description[] Descriptions { get; set; }
 
             [JsonProperty("total_inventory_count")]
-            public int Total_Inventory_Count { get; set; }
+            public uint Total_Inventory_Count { get; set; }
 
             [JsonProperty("success")]
             public bool Success { get; set; }
@@ -73,7 +73,7 @@ namespace SteamBot
             public string Error { get; set; }
 
             // Honestly have no idea what this is...
-            private uint rwgrsn { get; set; }
+            private int rwgrsn { get; set; }
         }
 
         public class asset
@@ -85,13 +85,13 @@ namespace SteamBot
             public int ContextID { get; set; }
 
             [JsonProperty("assetid")]
-            public long AssetID { get; set; }
+            public ulong AssetID { get; set; }
 
             [JsonProperty("classid")]
-            public long ClassID { get; set; }
+            public ulong ClassID { get; set; }
 
             [JsonProperty("instanceid")]
-            public long InstanceID { get; set; }
+            public ulong InstanceID { get; set; }
 
             [JsonProperty("amount")]
             public int Amount { get; set; }
@@ -103,10 +103,10 @@ namespace SteamBot
             public int AppID { get; set; }
 
             [JsonProperty("classid")]
-            public long ClassID { get; set; }
+            public ulong ClassID { get; set; }
 
             [JsonProperty("instanceid")]
-            public long InstanceID { get; set; }
+            public ulong InstanceID { get; set; }
 
             [JsonProperty("currency")]
             public int Currency { get; set; }
@@ -271,10 +271,10 @@ namespace SteamBot
         public class item
         {
             [JsonProperty("id")]
-            public long ID { get; set; }
+            public ulong ID { get; set; }
 
             [JsonProperty("original_id")]
-            public long Original_ID { get; set; }
+            public ulong Original_ID { get; set; }
 
             [JsonProperty("defindex")]
             public int DefIndex { get; set; }
@@ -286,7 +286,7 @@ namespace SteamBot
             public int Quality { get; set; }
 
             [JsonProperty("inventory")]
-            public long Inventory { get; set; }
+            public ulong Inventory { get; set; }
 
             [JsonProperty("quantity")]
             public int Quantity { get; set; }
@@ -394,10 +394,10 @@ namespace SteamBot
         public class item
         {
             [JsonProperty("id")]
-            public long ID { get; set; }
+            public ulong ID { get; set; }
 
             [JsonProperty("original_id")]
-            public long Original_ID { get; set; }
+            public ulong Original_ID { get; set; }
 
             [JsonProperty("defindex")]
             public int DefIndex { get; set; }
@@ -409,7 +409,7 @@ namespace SteamBot
             public int Quality { get; set; }
 
             [JsonProperty("inventory")]
-            public long Inventory { get; set; }
+            public ulong Inventory { get; set; }
 
             [JsonProperty("quantity")]
             public int Quantity { get; set; }
@@ -517,10 +517,10 @@ namespace SteamBot
         public class item
         {
             [JsonProperty("id")]
-            public long ID { get; set; }
+            public ulong ID { get; set; }
 
             [JsonProperty("original_id")]
-            public long Original_ID { get; set; }
+            public ulong Original_ID { get; set; }
 
             [JsonProperty("defindex")]
             public int DefIndex { get; set; }
@@ -532,7 +532,7 @@ namespace SteamBot
             public int Quality { get; set; }
 
             [JsonProperty("inventory")]
-            public long Inventory { get; set; }
+            public ulong Inventory { get; set; }
 
             [JsonProperty("quantity")]
             public int Quantity { get; set; }
@@ -625,10 +625,10 @@ namespace SteamBot
         public class item
         {
             [JsonProperty("id")]
-            public long ID { get; set; }
+            public ulong ID { get; set; }
 
             [JsonProperty("original_id")]
-            public long Original_ID { get; set; }
+            public ulong Original_ID { get; set; }
 
             [JsonProperty("icon_url")]
             public string Icon_URL { get; set; }
