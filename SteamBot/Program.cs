@@ -11,6 +11,7 @@ namespace SteamBot
         static void Main(string[] args)
         {
             Console.Title = "azzae99's SteamBot SteamKit 2.1.0 Base";
+            Console.ForegroundColor = ConsoleColor.White;
 
             if (!File.Exists("config.json"))
                 Console.WriteLine("The 'config.json' file does not exist...");

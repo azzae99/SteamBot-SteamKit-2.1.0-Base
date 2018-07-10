@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SteamKit2;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace SteamBot
 {
@@ -10,7 +11,7 @@ namespace SteamBot
     {
         private SteamWebClient SteamWebClient;
 
-        public List<Tuple<asset, description>> Items = new List<Tuple<asset, description>>();
+        public List<Item> Items = new List<Item>();
         public uint Total_Inventory_Count;
         public bool Success;
         public string Error;
@@ -26,28 +27,32 @@ namespace SteamBot
             {
                 foreach (int ContextID in ContextIDs)
                 {
-                    inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                    LoadInventoryResponse inventory = JsonConvert.DeserializeObject<LoadInventoryResponse>(SteamWebClient.Request(
                         String.Format("https://steamcommunity.com/inventory/{0}/{1}/{2}?l=english&count=5000{3}",
                         User.ConvertToUInt64(), AppID, ContextID, (StartAssetID != 0) ? "&start_assetid=" + StartAssetID : String.Empty), "GET"));
 
-                    Success = inv.Success;
+                    Success = inventory.Success;
 
                     if (!Success)
                     {
-                        Error = inv.Error;
+                        Error = inventory.Error;
                         continue;
                     }
 
-                    if (inv.Assets != null)
+                    if (inventory.Assets != null)
                     {
-                        foreach (asset Asset in inv.Assets)
-                            Items.Add(new Tuple<asset, description>(Asset, inv.Descriptions.First(x => x.ClassID == Asset.ClassID)));
+                        foreach (Asset asset in inventory.Assets)
+                        {
+                            Item item = new Item(asset, inventory.Descriptions.First(x => x.ClassID == asset.ClassID));
+                            if (!Items.Contains(item))
+                                Items.Add(item);
+                        }
 
-                        if (inv.Total_Inventory_Count > 5000 && Items.Last().Item1.AssetID != StartAssetID)
-                            LoadInventory(AppID, new int[] { ContextID }, User, Items.Last().Item1.AssetID);
+                        if (inventory.Total_Inventory_Count > 5000 && Items.Last().AssetID != StartAssetID)
+                            LoadInventory(AppID, new int[] { ContextID }, User, Items.Last().AssetID);
                     }
 
-                    Total_Inventory_Count = inv.Total_Inventory_Count;
+                    Total_Inventory_Count = inventory.Total_Inventory_Count;
                 }
             }
             catch (Exception ex)
@@ -56,13 +61,13 @@ namespace SteamBot
             }
         }
 
-        public class inventory
+        private class LoadInventoryResponse
         {
             [JsonProperty("assets")]
-            public asset[] Assets { get; set; }
+            public Asset[] Assets { get; set; }
 
             [JsonProperty("descriptions")]
-            public description[] Descriptions { get; set; }
+            public Description[] Descriptions { get; set; }
 
             [JsonProperty("total_inventory_count")]
             public uint Total_Inventory_Count { get; set; }
@@ -76,7 +81,7 @@ namespace SteamBot
             private int rwgrsn { get; set; }
         }
 
-        public class asset
+        public class Asset
         {
             [JsonProperty("appid")]
             public int AppID { get; set; }
@@ -97,7 +102,7 @@ namespace SteamBot
             public int Amount { get; set; }
         }
 
-        public class description
+        public class Description
         {
             [JsonProperty("appid")]
             public int AppID { get; set; }
@@ -121,13 +126,13 @@ namespace SteamBot
             public string Icon_URL_Large { get; set; }
 
             [JsonProperty("descriptions")]
-            public inner_description[] InnerDescription { get; set; }
+            public Inner_Description[] InnerDescriptions { get; set; }
 
             [JsonProperty("tradable")]
             public bool Tradable { get; set; }
 
             [JsonProperty("actions")]
-            public action[] Actions { get; set; }
+            public Action[] Actions { get; set; }
 
             [JsonProperty("name")]
             public string Name { get; set; }
@@ -148,7 +153,7 @@ namespace SteamBot
             public int Market_Fee_App { get; set; }
 
             [JsonProperty("market_actions")]
-            public action[] Market_Actions { get; set; }
+            public Action[] Market_Actions { get; set; }
 
             [JsonProperty("commodity")]
             public bool Commodity { get; set; }
@@ -163,83 +168,146 @@ namespace SteamBot
             public bool Marketable { get; set; }
 
             [JsonProperty("tags")]
-            public tag[] Tags { get; set; }
+            public Tag[] Tags { get; set; }
+
+
+            public class Inner_Description
+            {
+                [JsonProperty("type")]
+                public string Type { get; set; }
+
+                [JsonProperty("value")]
+                public string Value { get; set; }
+
+                [JsonProperty("color")]
+                public string Color { get; set; }
+            }
+
+            public class Action
+            {
+                [JsonProperty("link")]
+                public string Link { get; set; }
+
+                [JsonProperty("name")]
+                public string Name { get; set; }
+            }
+
+            public class Tag
+            {
+                [JsonProperty("category")]
+                public string Category { get; set; }
+
+                [JsonProperty("internal_name")]
+                public string Internal_Name { get; set; }
+
+                [JsonProperty("localized_category_name")]
+                public string Localized_Category_Name { get; set; }
+
+                [JsonProperty("localized_tag_name")]
+                public string Localized_Tag_Name { get; set; }
+
+                [JsonProperty("color")]
+                public string Color { get; set; }
+            }
         }
 
-        public class inner_description
+        public class Item
         {
-            [JsonProperty("type")]
-            public string Type { get; set; }
+            public Item(Asset asset, Description description)
+            {
+                AppID = asset.AppID;
+                ContextID = asset.ContextID;
+                AssetID = asset.AssetID;
+                ClassID = asset.ClassID;
+                InstanceID = asset.InstanceID;
+                Amount = asset.Amount;
 
-            [JsonProperty("value")]
-            public string Value { get; set; }
+                Currency = description.Currency;
+                Background_Color = description.Background_Color;
+                Icon_URL = description.Icon_URL;
+                Icon_URL_Large = description.Icon_URL_Large;
+                InnerDescriptions = description.InnerDescriptions;
+                Tradable = description.Tradable;
+                Actions = description.Actions;
+                Name = description.Name;
+                Name_Color = description.Name_Color;
+                Type = description.Type;
+                Market_Name = description.Market_Name;
+                Market_Hash_Name = description.Market_Hash_Name;
+                Market_Fee_App = description.Market_Fee_App;
+                Market_Actions = description.Market_Actions;
+                Commodity = description.Commodity;
+                Market_Tradable_Restriction = description.Market_Tradable_Restriction;
+                Market_Marketable_Restriction = description.Market_Marketable_Restriction;
+                Marketable = description.Marketable;
+                Tags = description.Tags;
+            }
 
-            [JsonProperty("color")]
-            public string Color { get; set; }
-        }
+            public int AppID;
+            public int ContextID;
+            public ulong AssetID;
+            public ulong ClassID;
+            public ulong InstanceID;
+            public int Amount;
 
-        public class action
-        {
-            [JsonProperty("link")]
-            public string Link { get; set; }
-
-            [JsonProperty("name")]
-            public string Name { get; set; }
-        }
-
-        public class tag
-        {
-            [JsonProperty("category")]
-            public string Category { get; set; }
-
-            [JsonProperty("internal_name")]
-            public string Internal_Name { get; set; }
-
-            [JsonProperty("localized_category_name")]
-            public string Localized_Category_Name { get; set; }
-
-            [JsonProperty("localized_tag_name")]
-            public string Localized_Tag_Name { get; set; }
-
-            [JsonProperty("color")]
-            public string Color { get; set; }
+            public int Currency;
+            public string Background_Color;
+            public string Icon_URL;
+            public string Icon_URL_Large;
+            public Description.Inner_Description[] InnerDescriptions;
+            public bool Tradable;
+            public Description.Action[] Actions;
+            public string Name;
+            public string Name_Color;
+            public string Type;
+            public string Market_Name;
+            public string Market_Hash_Name;
+            public int Market_Fee_App;
+            public Description.Action[] Market_Actions;
+            public bool Commodity;
+            public int Market_Tradable_Restriction;
+            public int Market_Marketable_Restriction;
+            public bool Marketable;
+            public Description.Tag[] Tags;
         }
     }
 
     public class TF2Inventory
     {
         private SteamWebClient SteamWebClient;
+        private string Key;
 
-        public List<item> Items = new List<item>();
+        public List<Item> Items = new List<Item>();
         public int Num_Backpack_Slots;
         public bool Status;
         public string Error;
 
-        public TF2Inventory(ref SteamWebClient Client)
+        public TF2Inventory(ref SteamWebClient Client, string APIKey)
         {
             SteamWebClient = Client;
+            Key = APIKey;
         }
 
-        public void LoadInventory(SteamID User, string APIKey)
+        public void LoadInventory(SteamID User)
         {
             try
             {
-                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_440/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    APIKey, User.ConvertToUInt64()), "GET"));
+                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
 
-                Status = inv.Result.Status;
+                Status = inventory.Status;
 
                 if (!Status)
                 {
-                    Error = inv.Result.StatusDetail;
+                    Error = inventory.StatusDetail;
                     return;
                 }
 
-                if (inv.Result.Items != null)
-                    Items = inv.Result.Items.ToList();
+                if (inventory.Items != null)
+                    Items = inventory.Items.ToList();
 
-                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+                Num_Backpack_Slots = inventory.Num_Backpack_Slots;
             }
             catch (Exception ex)
             {
@@ -247,13 +315,7 @@ namespace SteamBot
             }
         }
 
-        public class inventory
-        {
-            [JsonProperty("result")]
-            public result Result { get; set; }
-        }
-
-        public class result
+        private class Inventory
         {
             [JsonProperty("status")]
             public bool Status { get; set; }
@@ -265,10 +327,10 @@ namespace SteamBot
             public int Num_Backpack_Slots { get; set; }
 
             [JsonProperty("items")]
-            public item[] Items { get; set; }
+            public Item[] Items { get; set; }
         }
 
-        public class item
+        public class Item
         {
             [JsonProperty("id")]
             public ulong ID { get; set; }
@@ -298,71 +360,74 @@ namespace SteamBot
             public int Style { get; set; }
 
             [JsonProperty("equipped")]
-            public equipped[] Equipped { get; set; }
+            public Equipped[] EquippedOn { get; set; }
 
             [JsonProperty("flag_cannot_trade")]
             public bool Flag_Cannot_Trade { get; set; }
 
             [JsonProperty("attributes")]
-            public attribute[] Attributes { get; set; }
-        }
+            public Attribute[] Attributes { get; set; }
 
-        public class equipped
-        {
-            [JsonProperty("class")]
-            public int Class { get; set; }
-            
-            [JsonProperty("slot")]
-            public int Slot { get; set; }
-        }
 
-        public class attribute
-        {
-            [JsonProperty("defindex")]
-            public int DefIndex { get; set; }
+            public class Equipped
+            {
+                [JsonProperty("class")]
+                public int Class { get; set; }
 
-            [JsonProperty("value")]
-            public string Value { get; set; }
+                [JsonProperty("slot")]
+                public int Slot { get; set; }
+            }
 
-            [JsonProperty("float_value")]
-            public float Float_Value { get; set; }
+            public class Attribute
+            {
+                [JsonProperty("defindex")]
+                public int DefIndex { get; set; }
+
+                [JsonProperty("value")]
+                public string Value { get; set; }
+
+                [JsonProperty("float_value")]
+                public float Float_Value { get; set; }
+            }
         }
     }
 
     public class Dota2Inventory
     {
         private SteamWebClient SteamWebClient;
+        private string Key;
 
-        public List<item> Items = new List<item>();
+        public List<Item> Items = new List<Item>();
         public int Num_Backpack_Slots;
         public bool Status;
         public string Error;
 
-        public Dota2Inventory(ref SteamWebClient Client)
+        public Dota2Inventory(ref SteamWebClient Client, string APIKey)
         {
             SteamWebClient = Client;
+            Key = APIKey;
         }
 
-        public void LoadInventory(SteamID User, string APIKey)
+        public void LoadInventory(SteamID User)
         {
             try
             {
-                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_570/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    APIKey, User.ConvertToUInt64()), "GET"));
+                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
 
-                Status = inv.Result.Status;
+                Status = inventory.Status;
 
                 if (!Status)
                 {
-                    Error = inv.Result.StatusDetail;
+                    Error = inventory.StatusDetail;
                     return;
                 }
 
-                if (inv.Result.Items != null)
-                    Items = inv.Result.Items.ToList();
+                if (inventory.Items != null)
+                    Items = inventory.Items.ToList();
 
-                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+                Num_Backpack_Slots = inventory.Num_Backpack_Slots;
             }
             catch (Exception ex)
             {
@@ -370,13 +435,7 @@ namespace SteamBot
             }
         }
 
-        public class inventory
-        {
-            [JsonProperty("result")]
-            public result Result { get; set; }
-        }
-
-        public class result
+        public class Inventory
         {
             [JsonProperty("status")]
             public bool Status { get; set; }
@@ -388,10 +447,10 @@ namespace SteamBot
             public int Num_Backpack_Slots { get; set; }
 
             [JsonProperty("items")]
-            public item[] Items { get; set; }
+            public Item[] Items { get; set; }
         }
 
-        public class item
+        public class Item
         {
             [JsonProperty("id")]
             public ulong ID { get; set; }
@@ -418,7 +477,7 @@ namespace SteamBot
             public int Style { get; set; }
 
             [JsonProperty("equipped")]
-            public equipped[] Equipped { get; set; }
+            public Equipped[] EquippedOn { get; set; }
 
             [JsonProperty("flag_cannot_trade")]
             public bool Flag_Cannot_Trade { get; set; }
@@ -427,65 +486,68 @@ namespace SteamBot
             public bool Flag_Cannot_Craft { get; set; }
 
             [JsonProperty("attributes")]
-            public attribute[] Attributes { get; set; }
-        }
+            public Attribute[] Attributes { get; set; }
 
-        public class equipped
-        {
-            [JsonProperty("class")]
-            public int Class { get; set; }
 
-            [JsonProperty("slot")]
-            public int Slot { get; set; }
-        }
+            public class Equipped
+            {
+                [JsonProperty("class")]
+                public int Class { get; set; }
 
-        public class attribute
-        {
-            [JsonProperty("defindex")]
-            public int DefIndex { get; set; }
+                [JsonProperty("slot")]
+                public int Slot { get; set; }
+            }
 
-            [JsonProperty("value")]
-            public string Value { get; set; }
+            public class Attribute
+            {
+                [JsonProperty("defindex")]
+                public int DefIndex { get; set; }
 
-            [JsonProperty("float_value")]
-            public float Float_Value { get; set; }
+                [JsonProperty("value")]
+                public string Value { get; set; }
+
+                [JsonProperty("float_value")]
+                public float Float_Value { get; set; }
+            }
         }
     }
 
     public class Portal2Inventory
     {
         private SteamWebClient SteamWebClient;
+        private string Key;
 
-        public List<item> Items = new List<item>();
+        public List<Item> Items = new List<Item>();
         public int Num_Backpack_Slots;
         public bool Status;
         public string Error;
 
-        public Portal2Inventory(ref SteamWebClient Client)
+        public Portal2Inventory(ref SteamWebClient Client, string APIKey)
         {
             SteamWebClient = Client;
+            Key = APIKey;
         }
 
-        public void LoadInventory(SteamID User, string APIKey)
+        public void LoadInventory(SteamID User)
         {
             try
             {
-                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_620/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    APIKey, User.ConvertToUInt64()), "GET"));
+                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
 
-                Status = inv.Result.Status;
+                Status = inventory.Status;
 
                 if (!Status)
                 {
-                    Error = inv.Result.StatusDetail;
+                    Error = inventory.StatusDetail;
                     return;
                 }
 
-                if (inv.Result.Items != null)
-                    Items = inv.Result.Items.ToList();
+                if (inventory.Items != null)
+                    Items = inventory.Items.ToList();
 
-                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+                Num_Backpack_Slots = inventory.Num_Backpack_Slots;
             }
             catch (Exception ex)
             {
@@ -493,13 +555,7 @@ namespace SteamBot
             }
         }
 
-        public class inventory
-        {
-            [JsonProperty("result")]
-            public result Result { get; set; }
-        }
-
-        public class result
+        public class Inventory
         {
             [JsonProperty("status")]
             public bool Status { get; set; }
@@ -511,10 +567,10 @@ namespace SteamBot
             public int Num_Backpack_Slots { get; set; }
 
             [JsonProperty("items")]
-            public item[] Items { get; set; }
+            public Item[] Items { get; set; }
         }
 
-        public class item
+        public class Item
         {
             [JsonProperty("id")]
             public ulong ID { get; set; }
@@ -541,59 +597,62 @@ namespace SteamBot
             public int Origin { get; set; }
 
             [JsonProperty("equipped")]
-            public equipped[] Equipped { get; set; }
+            public Equipped[] EquippedOn { get; set; }
 
             [JsonProperty("flag_cannot_trade")]
             public bool Flag_Cannot_Trade { get; set; }
 
             [JsonProperty("flag_cannot_craft")]
             public bool Flag_Cannot_Craft { get; set; }
-        }
 
-        public class equipped
-        {
-            [JsonProperty("class")]
-            public int Class { get; set; }
 
-            [JsonProperty("slot")]
-            public int Slot { get; set; }
+            public class Equipped
+            {
+                [JsonProperty("class")]
+                public int Class { get; set; }
+
+                [JsonProperty("slot")]
+                public int Slot { get; set; }
+            }
         }
     }
 
     public class BattleBlockTheaterInventory
     {
         private SteamWebClient SteamWebClient;
+        private string Key;
 
-        public List<item> Items = new List<item>();
+        public List<Item> Items = new List<Item>();
         public int Num_Backpack_Slots;
         public bool Status;
         public string Error;
 
-        public BattleBlockTheaterInventory(ref SteamWebClient Client)
+        public BattleBlockTheaterInventory(ref SteamWebClient Client, string APIKey)
         {
             SteamWebClient = Client;
+            Key = APIKey;
         }
 
-        public void LoadInventory(SteamID User, string APIKey)
+        public void LoadInventory(SteamID User)
         {
             try
             {
-                inventory inv = JsonConvert.DeserializeObject<inventory>(SteamWebClient.Request(
+                Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_238460/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    APIKey, User.ConvertToUInt64()), "GET"));
+                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
 
-                Status = inv.Result.Status;
+                Status = inventory.Status;
 
                 if (!Status)
                 {
-                    Error = inv.Result.StatusDetail;
+                    Error = inventory.StatusDetail;
                     return;
                 }
 
-                if (inv.Result.Items != null)
-                    Items = inv.Result.Items.ToList();
+                if (inventory.Items != null)
+                    Items = inventory.Items.ToList();
 
-                Num_Backpack_Slots = inv.Result.Num_Backpack_Slots;
+                Num_Backpack_Slots = inventory.Num_Backpack_Slots;
             }
             catch (Exception ex)
             {
@@ -601,13 +660,7 @@ namespace SteamBot
             }
         }
 
-        public class inventory
-        {
-            [JsonProperty("result")]
-            public result Result { get; set; }
-        }
-
-        public class result
+        public class Inventory
         {
             [JsonProperty("status")]
             public bool Status { get; set; }
@@ -619,10 +672,10 @@ namespace SteamBot
             public int Num_Backpack_Slots { get; set; }
 
             [JsonProperty("items")]
-            public item[] Items { get; set; }
+            public Item[] Items { get; set; }
         }
 
-        public class item
+        public class Item
         {
             [JsonProperty("id")]
             public ulong ID { get; set; }
@@ -658,19 +711,20 @@ namespace SteamBot
             public string Name { get; set; }
 
             [JsonProperty("descriptions")]
-            public description[] Descriptions { get; set; }
-        }
+            public Description[] Descriptions { get; set; }
 
-        public class description
-        {
-            [JsonProperty("value")]
-            public string Value { get; set; }
 
-            [JsonProperty("color")]
-            public string Color { get; set; }
+            public class Description
+            {
+                [JsonProperty("value")]
+                public string Value { get; set; }
 
-            [JsonProperty("type")]
-            public string Type { get; set; }
+                [JsonProperty("color")]
+                public string Color { get; set; }
+
+                [JsonProperty("type")]
+                public string Type { get; set; }
+            }
         }
     }
 }

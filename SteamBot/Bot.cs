@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
@@ -12,7 +11,6 @@ namespace SteamBot
     public class Bot
     {
         private readonly string Username;
-
         public readonly Logger Log;
 
         private System.Timers.Timer CallbackTimer;
@@ -20,47 +18,43 @@ namespace SteamBot
         public readonly SteamClient SteamClient;
         public readonly CallbackManager CallbackManager;
         public readonly SteamUser SteamUser;
-        public readonly SteamFriends SteamFriends;
-        public readonly SteamTrading SteamTrading;
         public readonly SteamUser.LogOnDetails LogOnDetails;
-
+        public readonly SteamFriends SteamFriends;
         public readonly PacketMsgHandler PacketMsgHandler;
+
+        public readonly SteamGuardAccount SteamGuardAccount;
 
         public SteamWebClient SteamWebClient;
         private string WebAPIUserNonce;
         private string UniqueID;
 
-        public readonly SteamGuardAccount SteamGuardAccount;
-
         public Bot(Configuration.BotConfiguration Config)
         {
+            Username = Config.Username;
+            Log = new Logger(Username);
+
             CallbackTimer = new System.Timers.Timer();
             CallbackTimer.Elapsed += new System.Timers.ElapsedEventHandler(CallbackTimer_Elapsed);
             CallbackTimer.Interval = 500;
 
-            Username = Config.Username;
-
-            Log = new Logger(Username);
-
             SteamClient = new SteamClient();
-            SteamWebClient = new SteamWebClient();
             CallbackManager = new CallbackManager(SteamClient);
             SteamUser = SteamClient.GetHandler<SteamUser>();
-            SteamFriends = SteamClient.GetHandler<SteamFriends>();
-            SteamTrading = SteamClient.GetHandler<SteamTrading>();
-            SteamGuardAccount = new SteamGuardAccount();
-
-            SteamClient.AddHandler(new PacketMsgHandler());
-            PacketMsgHandler = SteamClient.GetHandler<PacketMsgHandler>();
-
-            if (!String.IsNullOrEmpty(Config.SharedSecret))
-                SteamGuardAccount.SharedSecret = Config.SharedSecret;
-
             LogOnDetails = new SteamUser.LogOnDetails
             {
                 Username = Username,
                 Password = Config.Password,
             };
+            SteamFriends = SteamClient.GetHandler<SteamFriends>();
+            SteamClient.AddHandler(new PacketMsgHandler());
+            PacketMsgHandler = SteamClient.GetHandler<PacketMsgHandler>();
+
+            SteamGuardAccount = new SteamGuardAccount();
+            if (!String.IsNullOrEmpty(Config.SharedSecret))
+                SteamGuardAccount.SharedSecret = Config.SharedSecret;
+
+            SteamWebClient = new SteamWebClient();
+
 
             CallbackManager.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
             CallbackManager.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
@@ -170,16 +164,16 @@ namespace SteamBot
                 else if (Callback.Result == EResult.InvalidLoginAuthCode)
                 {
                     string OldAuthCode = LogOnDetails.AuthCode;
-                    Log.Error("The Email Authentication Code, {0}, provided for {1} is incorrect...", Username, OldAuthCode);
-                    Log.Prompt("Please enter the Email Authentication Code for {0}, with an Email Address ending in {1}:", Username, Callback.EmailDomain);
+                    Log.Error("The Email Authentication Code, {0}, provided for {1}, is incorrect...", OldAuthCode, Username);
+                    Log.Prompt("Please enter the Email Authentication Code for {0}:", Username);
                     while (LogOnDetails.AuthCode == OldAuthCode)
                         LogOnDetails.AuthCode = Console.ReadLine();
                 }
                 else if (Callback.Result == EResult.ExpiredLoginAuthCode)
                 {
                     string OldAuthCode = LogOnDetails.AuthCode;
-                    Log.Error("The Email Authentication Code, {0}, provided for {1} has expired...", Username, OldAuthCode);
-                    Log.Prompt("Please enter the Email Authentication Code for {0}, with an Email Address ending in {1}:", Username, Callback.EmailDomain);
+                    Log.Error("The Email Authentication Code, {0}, provided for {1}, has expired...", OldAuthCode, Username);
+                    Log.Prompt("Please enter the Email Authentication Code for {0}:", Username);
                     while (LogOnDetails.AuthCode == OldAuthCode)
                         LogOnDetails.AuthCode = Console.ReadLine();
                 }

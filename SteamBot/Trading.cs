@@ -8,6 +8,203 @@ using Newtonsoft.Json.Linq;
 
 namespace SteamBot
 {
+    public class Trading
+    {
+        private SteamWebClient SteamWebClient;
+        private string Key;
+
+        public string Error;
+        public string Response;
+
+        public Trading(ref SteamWebClient Client, string APIKey)
+        {
+            SteamWebClient = Client;
+            Key = APIKey;
+        }
+
+        public SteamID GetPartnerSteamID(ulong AccountID_Other)
+        {
+            return new SteamID(String.Format("STEAM_0:{0}:{1}", AccountID_Other & 1, AccountID_Other >> 1));
+        }
+
+        public List<CEcon_TradeOffer> GetReceivedTradeOffers(bool ActiveOnly = true)
+        {
+            try
+            {
+                CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_received_offers=1&active_only={1}",
+                    Key, (ActiveOnly) ? "1" : "0"), "GET"))["response"]["trade_offers_received"].ToObject<CEcon_TradeOffer[]>();
+
+                if (Offers != null)
+                    return Offers.ToList();
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+            return null;
+        }
+
+        public List<CEcon_TradeOffer> GetSentTradeOffers(bool ActiveOnly = true)
+        {
+            try
+            {
+                CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
+                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_sent_offers=1&active_only={1}",
+                    Key, (ActiveOnly) ? "1" : "0"), "GET"))["response"]["trade_offers_sent"].ToObject<CEcon_TradeOffer[]>();
+
+                if (Offers != null)
+                    return Offers.ToList();
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+            }
+            return null;
+        }
+
+        public TradeOffer.Offer CreateTradeOffer()
+        {
+            return new TradeOffer.Offer();
+        }
+
+        public TradeOffer.SendResponse SendTradeOffer(TradeOffer.Offer Offer, SteamID Partner, string Token = null, string TradeMessage = null)
+        {
+            try
+            {
+                NameValueCollection Data = new NameValueCollection();
+                Data.Add("sessionid", SteamWebClient.SessionID);
+                Data.Add("serverid", "1");
+                Data.Add("partner", Partner.ConvertToUInt64().ToString());
+                Data.Add("tradeoffermessage", (String.IsNullOrEmpty(TradeMessage)) ? "Automatic TradeOffer" : TradeMessage);
+                Data.Add("json_tradeoffer", JsonConvert.SerializeObject(Offer));
+                Data.Add("trade_offer_create_params", (String.IsNullOrEmpty(Token)) ? "{}" : new JObject { "trade_offer_access_token", Token }.ToString());
+
+                string Referer = String.Format("https://steamcommunity.com/tradeoffer/new/?partner={0}{1}", Partner.AccountID, (String.IsNullOrEmpty(Token)) ? String.Empty : "&token=" + Token);
+
+                return JsonConvert.DeserializeObject<TradeOffer.SendResponse>(SteamWebClient.Request("https://steamcommunity.com/tradeoffer/new/send", "POST", Data, Referer));
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+                return null;
+            }
+        }
+
+        public TradeOffer.AcceptResponse AcceptTradeOffer(CEcon_TradeOffer Offer)
+        {
+            try
+            {
+                NameValueCollection Data = new NameValueCollection();
+                Data.Add("sessionid", SteamWebClient.SessionID);
+                Data.Add("serverid", "1");
+                Data.Add("tradeofferid", Offer.TradeOfferID.ToString());
+                Data.Add("partner", GetPartnerSteamID(Offer.AccountID_Other).ConvertToUInt64().ToString());
+
+                string URL = String.Format("https://steamcommunity.com/tradeoffer/{0}/", Offer.TradeOfferID);
+
+                return JsonConvert.DeserializeObject<TradeOffer.AcceptResponse>(SteamWebClient.Request(URL + "accept", "POST", Data, URL));
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+                return null;
+            }
+        }
+
+        public TradeOffer.DeclineResponse DeclineTradeOffer(CEcon_TradeOffer Offer)
+        {
+            try
+            {
+                NameValueCollection Data = new NameValueCollection();
+                Data.Add("sessionid", SteamWebClient.SessionID);
+
+                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request(String.Format("https://steamcommunity.com/tradeoffer/{0}/decline", Offer.TradeOfferID), "POST", Data));
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+                return null;
+            }
+        }
+
+        public class CEcon_TradeOffer
+        {
+            [JsonProperty("tradeofferid")]
+            public ulong TradeOfferID { get; set; }
+
+            [JsonProperty("accountid_other")]
+            public ulong AccountID_Other { get; set; }
+
+            [JsonProperty("message")]
+            public string Message { get; set; }
+
+            [JsonProperty("expiration_time")]
+            public ulong Expiration_Time { get; set; }
+
+            [JsonProperty("trade_offer_state")]
+            public ETradeOfferState Trade_Offer_State { get; set; }
+
+            [JsonProperty("items_to_give")]
+            public CEcon_Asset[] Items_To_Give { get; set; }
+
+            [JsonProperty("items_to_receive")]
+            public CEcon_Asset[] Items_To_Receive { get; set; }
+
+            [JsonProperty("is_our_offer")]
+            public bool Is_Our_Offer { get; set; }
+
+            [JsonProperty("time_created")]
+            public ulong Time_Created { get; set; }
+
+            [JsonProperty("time_updated")]
+            public ulong Time_Updated { get; set; }
+
+            [JsonProperty("tradeid")]
+            public ulong TradeID { get; set; }
+
+            [JsonProperty("from_real_time_trade")]
+            public bool From_Real_Time_Trade { get; set; }
+
+            [JsonProperty("escrow_end_date")]
+            public ulong Escrow_End_Date { get; set; }
+
+            [JsonProperty("confirmation_method")]
+            public ETradeOfferConfirmationMethod Confirmation_Method { get; set; }
+        }
+
+        public class CEcon_Asset : Inventory.Asset
+        {
+            [JsonProperty("missing")]
+            public bool Missing { get; set; }
+
+            [JsonProperty("est_usd")]
+            public ulong Est_USD { get; set; }
+        }
+
+        public enum ETradeOfferState
+        {
+            Invalid = 1,
+            Active = 2,
+            Accepted = 3,
+            Countered = 4,
+            Expired = 5,
+            Canceled = 6,
+            Declined = 7,
+            InvalidItems = 8,
+            CreatedNeedsConfirmation = 9,
+            CanceledBySecondFactor = 10,
+            InEscrow = 11
+        }
+
+        public enum ETradeOfferConfirmationMethod
+        {
+            Invalid = 0,
+            Email = 1,
+            MobileApp = 2
+        }
+    }
+
     public class TradeOffer
     {
         public class Offer
@@ -164,218 +361,6 @@ namespace SteamBot
         {
             [JsonProperty("tradeofferid")]
             public ulong TradeOfferID { get; set; }
-        }
-    }
-
-    public class Trading
-    {
-        private SteamWebClient SteamWebClient;
-        private string Key;
-
-        public string Error;
-        public string Response;
-
-        public Trading(ref SteamWebClient Client, string APIKey)
-        {
-            SteamWebClient = Client;
-            Key = APIKey;
-        }
-
-        public SteamID GetPartnerSteamID(ulong AccountID_Other)
-        {
-            return new SteamID(String.Format("STEAM_0:{0}:{1}", AccountID_Other & 1, AccountID_Other >> 1));
-        }
-
-        public List<CEcon_TradeOffer> GetReceivedTradeOffers(bool ActiveOnly = true)
-        {
-            try
-            {
-                tradeoffers offers = JsonConvert.DeserializeObject<tradeoffers>(SteamWebClient.Request(
-                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_received_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), "GET"));
-
-                if (offers.Response.Trade_Offers_Received != null)
-                    return offers.Response.Trade_Offers_Received.ToList();
-            }
-            catch (Exception ex)
-            {
-                Error = ex.Message;
-            }
-            return null;
-        }
-
-        public List<CEcon_TradeOffer> GetSentTradeOffers(bool ActiveOnly = true)
-        {
-            try
-            {
-                tradeoffers offers = JsonConvert.DeserializeObject<tradeoffers>(SteamWebClient.Request(
-                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_sent_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), "GET"));
-
-                if (offers.Response.Trade_Offers_Sent != null)
-                    return offers.Response.Trade_Offers_Sent.ToList();
-            }
-            catch (Exception ex)
-            {
-                Error = ex.Message;
-            }
-            return null;
-        }
-
-        public TradeOffer.Offer CreateTradeOffer()
-        {
-            return new TradeOffer.Offer();
-        }
-
-        public TradeOffer.SendResponse SendTradeOffer(TradeOffer.Offer Offer, SteamID Partner, string Token = null, string TradeMessage = null)
-        {
-            try
-            {
-                NameValueCollection Data = new NameValueCollection();
-                Data.Add("sessionid", SteamWebClient.SessionID);
-                Data.Add("serverid", "1");
-                Data.Add("partner", Partner.ConvertToUInt64().ToString());
-                Data.Add("tradeoffermessage", (String.IsNullOrEmpty(TradeMessage)) ? "Automatic TradeOffer" : TradeMessage);
-                Data.Add("json_tradeoffer", JsonConvert.SerializeObject(Offer));
-                Data.Add("trade_offer_create_params", (String.IsNullOrEmpty(Token)) ? "{}" : new JObject { "trade_offer_access_token", Token }.ToString());
-
-                string Referer = String.Format("https://steamcommunity.com/tradeoffer/new/?partner={0}{1}", Partner.AccountID, (String.IsNullOrEmpty(Token)) ? String.Empty : "&token=" + Token);
-
-                return JsonConvert.DeserializeObject<TradeOffer.SendResponse>(SteamWebClient.Request("https://steamcommunity.com/tradeoffer/new/send", "POST", Data, Referer));
-            }
-            catch (Exception ex)
-            {
-                Error = ex.Message;
-                return null;
-            }
-        }
-
-        public TradeOffer.AcceptResponse AcceptTradeOffer(CEcon_TradeOffer Offer)
-        {
-            try
-            {
-                NameValueCollection Data = new NameValueCollection();
-                Data.Add("sessionid", SteamWebClient.SessionID);
-                Data.Add("serverid", "1");
-                Data.Add("tradeofferid", Offer.TradeOfferID.ToString());
-                Data.Add("partner", GetPartnerSteamID(Offer.AccountID_Other).ConvertToUInt64().ToString());
-
-                string URL = String.Format("https://steamcommunity.com/tradeoffer/{0}/", Offer.TradeOfferID);
-
-                return JsonConvert.DeserializeObject<TradeOffer.AcceptResponse>(SteamWebClient.Request(URL + "accept", "POST", Data, URL));
-            }
-            catch (Exception ex)
-            {
-                Error = ex.Message;
-                return null;
-            }
-        }
-
-        public TradeOffer.DeclineResponse DeclineTradeOffer(CEcon_TradeOffer Offer)
-        {
-            try
-            {
-                NameValueCollection Data = new NameValueCollection();
-                Data.Add("sessionid", SteamWebClient.SessionID);
-
-                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request(String.Format("https://steamcommunity.com/tradeoffer/{0}/decline", Offer.TradeOfferID), "POST", Data));
-            }
-            catch (Exception ex)
-            {
-                Error = ex.Message;
-                return null;
-            }
-        }
-
-        private class tradeoffers
-        {
-            [JsonProperty("response")]
-            public response Response { get; set; }
-        }
-
-        private class response
-        {
-            [JsonProperty("trade_offers_sent")]
-            public CEcon_TradeOffer[] Trade_Offers_Sent { get; set; }
-
-            [JsonProperty("trade_offers_received")]
-            public CEcon_TradeOffer[] Trade_Offers_Received { get; set; }
-        }
-
-        public class CEcon_TradeOffer
-        {
-            [JsonProperty("tradeofferid")]
-            public ulong TradeOfferID { get; set; }
-
-            [JsonProperty("accountid_other")]
-            public ulong AccountID_Other { get; set; }
-
-            [JsonProperty("message")]
-            public string Message { get; set; }
-
-            [JsonProperty("expiration_time")]
-            public ulong Expiration_Time { get; set; }
-
-            [JsonProperty("trade_offer_state")]
-            public ETradeOfferState Trade_Offer_State { get; set; }
-
-            [JsonProperty("items_to_give")]
-            public CEcon_Asset[] Items_To_Give { get; set; }
-
-            [JsonProperty("items_to_receive")]
-            public CEcon_Asset[] Items_To_Receive { get; set; }
-
-            [JsonProperty("is_our_offer")]
-            public bool Is_Our_Offer { get; set; }
-
-            [JsonProperty("time_created")]
-            public ulong Time_Created { get; set; }
-
-            [JsonProperty("time_updated")]
-            public ulong Time_Updated { get; set; }
-
-            [JsonProperty("tradeid")]
-            public ulong TradeID { get; set; }
-
-            [JsonProperty("from_real_time_trade")]
-            public bool From_Real_Time_Trade { get; set; }
-
-            [JsonProperty("escrow_end_date")]
-            public ulong Escrow_End_Date { get; set; }
-
-            [JsonProperty("confirmation_method")]
-            public ETradeOfferConfirmationMethod Confirmation_Method { get; set; }
-        }
-
-        public class CEcon_Asset : Inventory.asset
-        {
-            [JsonProperty("missing")]
-            public bool Missing { get; set; }
-
-            [JsonProperty("est_usd")]
-            public ulong Est_USD { get; set; }
-        }
-
-        public enum ETradeOfferState
-        {
-            TradeOfferStateInvalid = 1,
-            TradeOfferStateActive = 2,
-            TradeOfferStateAccepted = 3,
-            TradeOfferStateCountered = 4,
-            TradeOfferStateExpired = 5,
-            TradeOfferStateCanceled = 6,
-            TradeOfferStateDeclined = 7,
-            TradeOfferStateInvalidItems = 8,
-            TradeOfferStateCreatedNeedsConfirmation = 9,
-            TradeOfferStateCanceledBySecondFactor = 10,
-            TradeOfferStateInEscrow = 11
-        }
-
-        public enum ETradeOfferConfirmationMethod
-        {
-            TradeOfferConfirmationMethod_Invalid = 0,
-            TradeOfferConfirmationMethod_Email = 1,
-            TradeOfferConfirmationMethod_MobileApp = 2
         }
     }
 }

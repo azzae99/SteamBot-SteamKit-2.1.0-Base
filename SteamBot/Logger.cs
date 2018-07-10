@@ -6,13 +6,13 @@ namespace SteamBot
     public class Logger
     {
         private StreamWriter Stream;
-        private readonly string Name;
+        private readonly string Username;
 
-        public Logger(string BotUsername)
+        public Logger(string username)
         {
-            Name = BotUsername;
+            Username = username;
             Directory.CreateDirectory("00_Logs");
-            Stream = File.AppendText(Path.Combine("00_Logs", Name + ".log"));
+            Stream = File.AppendText(Path.Combine("00_Logs", Username + ".log"));
             Stream.AutoFlush = true;
         }
 
@@ -48,7 +48,7 @@ namespace SteamBot
 
         public void OutputLine(ConsoleColor color, string output)
         {
-            string conOutput = String.Format("{0} {1} {2}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), Name, output);
+            string conOutput = String.Format("{0} {1} {2}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), Username, output);
             string fileOutput = String.Format("{0} {1}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), output);
             Console.ForegroundColor = color;
             Console.WriteLine(conOutput);
