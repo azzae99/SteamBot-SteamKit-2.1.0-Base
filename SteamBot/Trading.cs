@@ -78,7 +78,13 @@ namespace SteamBot
                 Data.Add("partner", Partner.ConvertToUInt64().ToString());
                 Data.Add("tradeoffermessage", (String.IsNullOrEmpty(TradeMessage)) ? "Automatic TradeOffer" : TradeMessage);
                 Data.Add("json_tradeoffer", JsonConvert.SerializeObject(Offer));
-                Data.Add("trade_offer_create_params", (String.IsNullOrEmpty(Token)) ? "{}" : new JObject { "trade_offer_access_token", Token }.ToString());
+                // Using JObject will throw a System.ArgumentException saying 'Can not add Newtonsoft.Json.Linq.JValue to Newtonsoft.Json.Linq.JObject'
+                // Using Tuple<string, string> will serialize to '{"Item1":"trade_offer_access_token","Item2":"Token"}'
+                // Using KeyValuePair<string, string> will serialize to '{"Key":"trade_offer_access_token","Value":"Token"}'
+                // Using string[] will serialize to '["trade_offer_access_token","Token"]'
+                // The only way I found that works is Dictionary<string, string>
+                Data.Add("trade_offer_create_params", 
+                    (String.IsNullOrEmpty(Token)) ? "{}" : JsonConvert.SerializeObject(new Dictionary<string, string> { { "trade_offer_access_token", Token } }));
 
                 string Referer = String.Format("https://steamcommunity.com/tradeoffer/new/?partner={0}{1}", Partner.AccountID, (String.IsNullOrEmpty(Token)) ? String.Empty : "&token=" + Token);
 
