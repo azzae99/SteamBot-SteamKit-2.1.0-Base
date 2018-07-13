@@ -112,10 +112,11 @@ namespace SteamBot
 
                 if (!String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
                     LogOnDetails.TwoFactorCode = SteamGuardAccount.GenerateSteamGuardCode();
-                else if (File.Exists(String.Format(@"00_AuthFiles\{0}.auth", Username)))
+                else if (File.Exists(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username))))
                 {
                     SHA1 SHA = SHA1.Create();
-                    LogOnDetails.SentryFileHash = SHA.ComputeHash(File.ReadAllBytes(String.Format(@"00_AuthFiles\{0}.auth", Username)));
+                    byte[] SentryHash = SHA.ComputeHash(File.ReadAllBytes(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username))));
+                    LogOnDetails.SentryFileHash = SentryHash;
                 }
 
                 Log.Info("Logging In to Steam...");

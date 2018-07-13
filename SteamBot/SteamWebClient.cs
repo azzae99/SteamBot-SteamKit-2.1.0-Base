@@ -21,6 +21,10 @@ namespace SteamBot
 
         public bool Authenticate(string UniqueID, SteamClient Client, string WebAPIUserNonce)
         {
+            // Fix "The request was aborted: Could not create SSL/TLS secure channel" error
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12 | SecurityProtocolType.Ssl3;
+            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
             Token = TokenSecure = String.Empty;
             SessionID = Convert.ToBase64String(Encoding.UTF8.GetBytes(UniqueID));
             Cookies = new CookieContainer();
