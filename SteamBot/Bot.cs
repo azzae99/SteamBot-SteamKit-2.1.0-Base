@@ -314,7 +314,7 @@ namespace SteamBot
             bool IsAuthenticated = false;
             do
             {
-                IsAuthenticated = SteamWebClient.Authenticate(UniqueID, SteamClient, WebAPIUserNonce);
+                IsAuthenticated = SteamWebClient.Authenticate(WebAPIUserNonce, UniqueID, SteamClient.SteamID.ConvertToUInt64(), SteamClient.Universe);
                 if (!IsAuthenticated)
                 {
                     Log.Warn("Failed to Authenticate SteamWebClient, retrying in 10 seconds...");

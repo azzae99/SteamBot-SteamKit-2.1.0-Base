@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Net.Http;
 using SteamKit2;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -33,7 +34,7 @@ namespace SteamBot
             {
                 CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_received_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), "GET"))["response"]["trade_offers_received"].ToObject<CEcon_TradeOffer[]>();
+                    Key, (ActiveOnly) ? "1" : "0"), HttpMethod.Get).Data)["response"]["trade_offers_received"].ToObject<CEcon_TradeOffer[]>();
 
                 if (Offers != null)
                     return Offers.ToList();
@@ -51,7 +52,7 @@ namespace SteamBot
             {
                 CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_sent_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), "GET"))["response"]["trade_offers_sent"].ToObject<CEcon_TradeOffer[]>();
+                    Key, (ActiveOnly) ? "1" : "0"), HttpMethod.Get).Data)["response"]["trade_offers_sent"].ToObject<CEcon_TradeOffer[]>();
 
                 if (Offers != null)
                     return Offers.ToList();
@@ -72,7 +73,7 @@ namespace SteamBot
         {
             try
             {
-                NameValueCollection Data = new NameValueCollection();
+                Dictionary<string, string> Data = new Dictionary<string, string>();
                 Data.Add("sessionid", SteamWebClient.SessionID);
                 Data.Add("serverid", "1");
                 Data.Add("partner", Partner.ConvertToUInt64().ToString());
@@ -88,7 +89,7 @@ namespace SteamBot
 
                 string Referer = String.Format("https://steamcommunity.com/tradeoffer/new/?partner={0}{1}", Partner.AccountID, (String.IsNullOrEmpty(Token)) ? String.Empty : "&token=" + Token);
 
-                return JsonConvert.DeserializeObject<TradeOffer.SendResponse>(SteamWebClient.Request("https://steamcommunity.com/tradeoffer/new/send", "POST", Data, Referer));
+                return JsonConvert.DeserializeObject<TradeOffer.SendResponse>(SteamWebClient.Request("https://steamcommunity.com/tradeoffer/new/send", HttpMethod.Post, Data, Referer).Data);
             }
             catch (Exception ex)
             {
@@ -101,7 +102,7 @@ namespace SteamBot
         {
             try
             {
-                NameValueCollection Data = new NameValueCollection();
+                Dictionary<string, string> Data = new Dictionary<string, string>();
                 Data.Add("sessionid", SteamWebClient.SessionID);
                 Data.Add("serverid", "1");
                 Data.Add("tradeofferid", Offer.TradeOfferID.ToString());
@@ -109,7 +110,7 @@ namespace SteamBot
 
                 string URL = String.Format("https://steamcommunity.com/tradeoffer/{0}/", Offer.TradeOfferID);
 
-                return JsonConvert.DeserializeObject<TradeOffer.AcceptResponse>(SteamWebClient.Request(URL + "accept", "POST", Data, URL));
+                return JsonConvert.DeserializeObject<TradeOffer.AcceptResponse>(SteamWebClient.Request(URL + "accept", HttpMethod.Post, Data, URL).Data);
             }
             catch (Exception ex)
             {
@@ -122,10 +123,10 @@ namespace SteamBot
         {
             try
             {
-                NameValueCollection Data = new NameValueCollection();
+                Dictionary<string, string> Data = new Dictionary<string, string>();
                 Data.Add("sessionid", SteamWebClient.SessionID);
 
-                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request(String.Format("https://steamcommunity.com/tradeoffer/{0}/decline", Offer.TradeOfferID), "POST", Data));
+                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request(String.Format("https://steamcommunity.com/tradeoffer/{0}/decline", Offer.TradeOfferID), HttpMethod.Post, Data).Data);
             }
             catch (Exception ex)
             {

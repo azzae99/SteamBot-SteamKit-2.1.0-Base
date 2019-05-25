@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using SteamKit2;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -29,7 +30,7 @@ namespace SteamBot
                 {
                     LoadInventoryResponse inventory = JsonConvert.DeserializeObject<LoadInventoryResponse>(SteamWebClient.Request(
                         String.Format("https://steamcommunity.com/inventory/{0}/{1}/{2}?l=english&count=5000{3}",
-                        User.ConvertToUInt64(), AppID, ContextID, (StartAssetID != 0) ? "&start_assetid=" + StartAssetID : String.Empty), "GET"));
+                        User.ConvertToUInt64(), AppID, ContextID, (StartAssetID != 0) ? "&start_assetid=" + StartAssetID : String.Empty), HttpMethod.Get).Data);
 
                     Success = inventory.Success;
 
@@ -294,7 +295,7 @@ namespace SteamBot
             {
                 Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_440/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
+                    Key, User.ConvertToUInt64()), HttpMethod.Get).Data)["result"].ToObject<Inventory>();
 
                 Status = inventory.Status;
 
@@ -414,7 +415,7 @@ namespace SteamBot
             {
                 Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_570/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
+                    Key, User.ConvertToUInt64()), HttpMethod.Get).Data)["result"].ToObject<Inventory>();
 
                 Status = inventory.Status;
 
@@ -534,7 +535,7 @@ namespace SteamBot
             {
                 Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_620/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
+                    Key, User.ConvertToUInt64()), HttpMethod.Get).Data)["result"].ToObject<Inventory>();
 
                 Status = inventory.Status;
 
@@ -639,7 +640,7 @@ namespace SteamBot
             {
                 Inventory inventory = JObject.Parse(SteamWebClient.Request(
                     String.Format("https://api.steampowered.com/IEconItems_238460/GetPlayerItems/v1/?key={0}&steamid={1}",
-                    Key, User.ConvertToUInt64()), "GET"))["result"].ToObject<Inventory>();
+                    Key, User.ConvertToUInt64()), HttpMethod.Get).Data)["result"].ToObject<Inventory>();
 
                 Status = inventory.Status;
 

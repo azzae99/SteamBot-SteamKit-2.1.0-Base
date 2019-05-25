@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Cache;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 using System.Web;
 using SteamKit2;
 
@@ -13,19 +16,27 @@ namespace SteamBot
     {
         public const string SteamCommunityDomain = "steamcommunity.com";
         public const string SteamPoweredDomain = "steampowered.com";
+
+        private HttpClient Client;
         private CookieContainer Cookies;
 
         public string SessionID { get; private set; }
         public string Token { get; private set; }
         public string TokenSecure { get; private set; }
 
-        public bool Authenticate(string UniqueID, SteamClient Client, string WebAPIUserNonce)
+        public class Response
+        {
+            public Dictionary<string, string> Headers;
+            public string Data;
+            public string Error;
+        }
+
+        public bool Authenticate(string WebAPIUserNonce, string UniqueID, ulong SteamID64, EUniverse Universe)
         {
             // Fix "The request was aborted: Could not create SSL/TLS secure channel" error
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12 | SecurityProtocolType.Ssl3;
             ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
 
-            Token = TokenSecure = String.Empty;
             SessionID = Convert.ToBase64String(Encoding.UTF8.GetBytes(UniqueID));
             Cookies = new CookieContainer();
 
@@ -36,8 +47,10 @@ namespace SteamBot
 
                 // RSA Encrypt the SessionKey with Steam's Public RSA Key for our Account's Universe
                 byte[] EncryptedSessionKey = null;
-                using (RSACrypto Crypto = new RSACrypto(KeyDictionary.GetPublicKey(Client.Universe)))
+                using (RSACrypto Crypto = new RSACrypto(KeyDictionary.GetPublicKey(Universe)))
+                {
                     EncryptedSessionKey = Crypto.Encrypt(SessionKey);
+                }
 
                 byte[] LoginKey = new byte[20];
                 Array.Copy(Encoding.ASCII.GetBytes(WebAPIUserNonce), LoginKey, WebAPIUserNonce.Length);
@@ -49,7 +62,7 @@ namespace SteamBot
                 try
                 {
                     AuthResult = SteamUserAuth.AuthenticateUser(
-                        steamid: Client.SteamID.ConvertToUInt64(),
+                        steamid: SteamID64,
                         sessionkey: HttpUtility.UrlEncode(EncryptedSessionKey),
                         encrypted_loginkey: HttpUtility.UrlEncode(EncryptedLoginKey),
                         method: "POST",
@@ -58,83 +71,96 @@ namespace SteamBot
                 }
                 catch (Exception)
                 {
-                    Token = TokenSecure = null;
                     return false;
                 }
 
                 Token = AuthResult["token"].AsString();
                 TokenSecure = AuthResult["tokensecure"].AsString();
-
-                // Add Cookies for SteamCommunity
-                Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamCommunityDomain));
-                Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamCommunityDomain));
-                Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamCommunityDomain));
-
-                // Add Cookies for SteamPowered
-                Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamPoweredDomain));
-                Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamPoweredDomain));
-                Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamPoweredDomain));
-                Cookies.Add(new Cookie("birthtime", "-729000000", String.Empty, SteamPoweredDomain));
-                Cookies.Add(new Cookie("lastagecheckage", "1-January-1900", String.Empty, SteamPoweredDomain));
-                Cookies.Add(new Cookie("mature_content", "1", String.Empty, SteamPoweredDomain));
-
-                return true;
             }
+
+            // Add Cookies for SteamCommunity
+            Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamCommunityDomain));
+            Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamCommunityDomain));
+            Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamCommunityDomain));
+
+            // Add Cookies for SteamPowered
+            Cookies.Add(new Cookie("sessionid", SessionID, String.Empty, SteamPoweredDomain));
+            Cookies.Add(new Cookie("steamLogin", Token, String.Empty, SteamPoweredDomain));
+            Cookies.Add(new Cookie("steamLoginSecure", TokenSecure, String.Empty, SteamPoweredDomain));
+            Cookies.Add(new Cookie("birthtime", "-729000000", String.Empty, SteamPoweredDomain));
+            Cookies.Add(new Cookie("lastagecheckage", "1-January-1900", String.Empty, SteamPoweredDomain));
+            Cookies.Add(new Cookie("mature_content", "1", String.Empty, SteamPoweredDomain));
+
+            Client = new HttpClient(new WebRequestHandler
+            {
+                CachePolicy = new RequestCachePolicy(RequestCacheLevel.Revalidate),
+                CookieContainer = Cookies,
+            });
+
+            Client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "*/*");
+            Client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-AU,en-GB,en-US,en");
+            Client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36");
+
+            return true;
         }
 
-        public string Request(string URL, string Method, NameValueCollection Data = null, string Referer = null)
+        public Response Request(string URL, HttpMethod Method, Dictionary<string, string> Data = null, string Referer = null)
         {
             try
             {
-                // Convert Data to a Query String with URL Parameters
-                string QueryString = (Data == null ? null : String.Join("&", Array.ConvertAll(Data.AllKeys, Key =>
-                    String.Format("{0}={1}", HttpUtility.UrlEncode(Key), HttpUtility.UrlEncode(Data[Key]))
-                )));
-
-                // Add QueryString to URL if it exists
-                if (Method == "GET" && !String.IsNullOrEmpty(QueryString))
-                    URL += (URL.Contains("?") ? "&" : "?") + QueryString;
-
-                // Create the Request
-                HttpWebRequest Request = (HttpWebRequest)WebRequest.Create(URL);
-                Request.Method = Method;
-                Request.Accept = "application/json, application/xml, text/html, application/xhtml+xml, text/javascript;q=0.9, */*;q=0.5";
-                Request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
-                Request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36";
-                if (!String.IsNullOrEmpty(Referer))
-                    Request.Referer = Referer;
-                Request.Timeout = 15000;
-                Request.CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.Revalidate);
-                Request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-                // These are normally set for AJAX, but there's no real reason to disable it
-                Request.Headers.Add("X-Requested-With", "XMLHttpRequest");
-                Request.Headers.Add("X-Prototype-Version", "1.7");
-                // Add our Cookies
-                Request.CookieContainer = Cookies;
-
-                if (Method == "POST" && !String.IsNullOrEmpty(QueryString))
+                Task<HttpResponseMessage> ResponseMessage;
+                HttpRequestMessage RequestMessage = new HttpRequestMessage()
                 {
-                    byte[] QueryBytes = Encoding.UTF8.GetBytes(QueryString);
-                    Request.ContentLength = QueryBytes.Length;
+                    Method = Method,
+                };
 
-                    using (Stream RequestStream = Request.GetRequestStream())
-                        RequestStream.Write(QueryBytes, 0, QueryBytes.Length);
+                if (Method == HttpMethod.Get)
+                {
+                    if (Data != null)
+                    {
+                        NameValueCollection Collection = HttpUtility.ParseQueryString(String.Empty);
+                        foreach (KeyValuePair<string, string> Pair in Data)
+                        {
+                            Collection[Pair.Key] = Pair.Value;
+                        }
+
+                        URL = $"{URL}?{Collection.ToString()}";
+                    }
+                }
+                else if (Method == HttpMethod.Post)
+                {
+                    if (Data != null)
+                    {
+                        RequestMessage.Content = new FormUrlEncodedContent(Data);
+                    }
                 }
 
-                using (StreamReader Reader = new StreamReader(Request.GetResponse().GetResponseStream()))
-                    return Reader.ReadToEnd();
+                RequestMessage.RequestUri = new Uri(URL, UriKind.Absolute);
+                if (!String.IsNullOrEmpty(Referer))
+                {
+                    RequestMessage.Headers.Referrer = new Uri(Referer, UriKind.Absolute);
+                }
+
+                ResponseMessage = Client.SendAsync(RequestMessage);
+
+                return new Response
+                {
+                    Headers = ResponseMessage.Result.Headers.ToDictionary(x => x.Key, x => x.Value.First()),
+                    Data = ResponseMessage.Result.Content.ReadAsStringAsync().Result,
+                    Error = String.Empty
+                };
             }
-            catch (Exception ex)
+            catch (Exception Ex)
             {
-                return ex.Message;
+                return new Response { Error = Ex.Message };
             }
         }
 
         public bool CheckCookies()
         {
-            string SteamCommunity = Request("https://steamcommunity.com/", "GET");
-            string SteamPowered = Request("https://store.steampowered.com/", "GET");
-            return SteamCommunity.Contains("g_steamID") && !SteamPowered.Contains("var g_AccountID = 0;");
+            string SteamCommunity = Request("https://steamcommunity.com/", HttpMethod.Get).Data;
+            string SteamPowered = Request("https://store.steampowered.com/", HttpMethod.Get).Data;
+            return (SteamCommunity.Contains("g_steamID") && !SteamPowered.Contains("var g_AccountID = 0;"));
         }
     }
 }
