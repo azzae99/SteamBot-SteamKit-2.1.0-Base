@@ -112,10 +112,10 @@ namespace SteamBot
 
                 if (!String.IsNullOrEmpty(SteamGuardAccount.SharedSecret))
                     LogOnDetails.TwoFactorCode = SteamGuardAccount.GenerateSteamGuardCode();
-                else if (File.Exists(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username))))
+                else if (File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "00_AuthFiles",$"{Username}.auth")))
                 {
                     SHA1 SHA = SHA1.Create();
-                    byte[] SentryHash = SHA.ComputeHash(File.ReadAllBytes(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username))));
+                    byte[] SentryHash = SHA.ComputeHash(File.ReadAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "00_AuthFiles", $"{Username}.auth")));
                     LogOnDetails.SentryFileHash = SentryHash;
                 }
 
@@ -223,7 +223,7 @@ namespace SteamBot
             byte[] SentryHash = SHA.ComputeHash(Callback.Data);
 
             Directory.CreateDirectory("00_AuthFiles");
-            File.WriteAllBytes(Path.Combine("00_AuthFiles", String.Format("{0}.auth", Username)), Callback.Data);
+            File.WriteAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "00_AuthFiles", $"{Username}.auth"), Callback.Data);
 
             SteamUser.MachineAuthDetails MachineAuthDetails = new SteamUser.MachineAuthDetails
             {
@@ -284,7 +284,7 @@ namespace SteamBot
                     // Because we're working with a group rather than a user, it's quite difficult to actually get the name of it
                     // since there's no WebAPI Endpoints that we can use to get it, nor any such implementation in SteamKit2
                     XmlDocument XML = new XmlDocument();
-                    XML.Load(String.Format("https://steamcommunity.com/gid/{0}/memberslistxml?xml=1&p=99999", friend.SteamID.ConvertToUInt64()));
+                    XML.Load($"https://steamcommunity.com/gid/{friend.SteamID.ConvertToUInt64()}/memberslistxml?xml=1&p=99999");
                     Log.Info("Received Group Invite to {0} ({1}), ignoring...", XML.DocumentElement.SelectSingleNode("/memberList/groupDetails/groupName").InnerText, friend.SteamID.ConvertToUInt64());
                 }
                 else if (friend.SteamID.AccountType != EAccountType.Clan)

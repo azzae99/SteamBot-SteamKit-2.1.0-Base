@@ -28,8 +28,8 @@ namespace SteamBot
                 foreach (int ContextID in ContextIDs)
                 {
                     LoadInventoryResponse inventory = JsonConvert.DeserializeObject<LoadInventoryResponse>(SteamWebClient.Request(
-                        String.Format("https://steamcommunity.com/inventory/{0}/{1}/{2}?l=english&count=5000{3}",
-                        User.ConvertToUInt64(), AppID, ContextID, (StartAssetID != 0) ? "&start_assetid=" + StartAssetID : String.Empty), HttpMethod.Get).Data);
+                        $"https://steamcommunity.com/inventory/{User.ConvertToUInt64()}/{AppID}/{ContextID}?l=english&count=5000{ (StartAssetID != 0 ? $"&start_assetid={StartAssetID}" : String.Empty) }",
+                        HttpMethod.Get).Data);
 
                     Success = inventory.Success;
 

@@ -25,7 +25,7 @@ namespace SteamBot
 
         public SteamID GetPartnerSteamID(ulong AccountID_Other)
         {
-            return new SteamID(String.Format("STEAM_0:{0}:{1}", AccountID_Other & 1, AccountID_Other >> 1));
+            return new SteamID($"STEAM_0:{ AccountID_Other & 1 }:{ AccountID_Other >> 1}");
         }
 
         public List<CEcon_TradeOffer> GetReceivedTradeOffers(bool ActiveOnly = true)
@@ -33,8 +33,8 @@ namespace SteamBot
             try
             {
                 CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
-                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_received_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), HttpMethod.Get).Data)["response"]["trade_offers_received"].ToObject<CEcon_TradeOffer[]>();
+                    $"https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={Key}&get_received_offers=1&active_only={ (ActiveOnly ? "1" : "0") }",
+                    HttpMethod.Get).Data)["response"]["trade_offers_received"].ToObject<CEcon_TradeOffer[]>();
 
                 if (Offers != null)
                     return Offers.ToList();
@@ -51,8 +51,8 @@ namespace SteamBot
             try
             {
                 CEcon_TradeOffer[] Offers = JObject.Parse(SteamWebClient.Request(
-                    String.Format("https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={0}&get_sent_offers=1&active_only={1}",
-                    Key, (ActiveOnly) ? "1" : "0"), HttpMethod.Get).Data)["response"]["trade_offers_sent"].ToObject<CEcon_TradeOffer[]>();
+                    $"https://api.steampowered.com/IEconService/GetTradeOffers/v1/?key={Key}&get_sent_offers=1&active_only={ (ActiveOnly ? "1" : "0") }",
+                    HttpMethod.Get).Data)["response"]["trade_offers_sent"].ToObject<CEcon_TradeOffer[]>();
 
                 if (Offers != null)
                     return Offers.ToList();
@@ -87,7 +87,7 @@ namespace SteamBot
                 Data.Add("trade_offer_create_params", 
                     (String.IsNullOrEmpty(Token)) ? "{}" : JsonConvert.SerializeObject(new Dictionary<string, string> { { "trade_offer_access_token", Token } }));
 
-                string Referer = String.Format("https://steamcommunity.com/tradeoffer/new/?partner={0}{1}", Partner.AccountID, (String.IsNullOrEmpty(Token)) ? String.Empty : "&token=" + Token);
+                string Referer = $"https://steamcommunity.com/tradeoffer/new/?partner={Partner.AccountID}{ (String.IsNullOrEmpty(Token) ? String.Empty : $"&token={Token}") }";
 
                 return JsonConvert.DeserializeObject<TradeOffer.SendResponse>(SteamWebClient.Request("https://steamcommunity.com/tradeoffer/new/send", HttpMethod.Post, Data, Referer).Data);
             }
@@ -108,7 +108,7 @@ namespace SteamBot
                 Data.Add("tradeofferid", Offer.TradeOfferID.ToString());
                 Data.Add("partner", GetPartnerSteamID(Offer.AccountID_Other).ConvertToUInt64().ToString());
 
-                string URL = String.Format("https://steamcommunity.com/tradeoffer/{0}/", Offer.TradeOfferID);
+                string URL = $"https://steamcommunity.com/tradeoffer/{Offer.TradeOfferID}/";
 
                 return JsonConvert.DeserializeObject<TradeOffer.AcceptResponse>(SteamWebClient.Request(URL + "accept", HttpMethod.Post, Data, URL).Data);
             }
@@ -126,7 +126,7 @@ namespace SteamBot
                 Dictionary<string, string> Data = new Dictionary<string, string>();
                 Data.Add("sessionid", SteamWebClient.SessionID);
 
-                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request(String.Format("https://steamcommunity.com/tradeoffer/{0}/decline", Offer.TradeOfferID), HttpMethod.Post, Data).Data);
+                return JsonConvert.DeserializeObject<TradeOffer.DeclineResponse>(SteamWebClient.Request($"https://steamcommunity.com/tradeoffer/{Offer.TradeOfferID}/decline", HttpMethod.Post, Data).Data);
             }
             catch (Exception ex)
             {
