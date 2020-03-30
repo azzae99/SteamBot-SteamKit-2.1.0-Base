@@ -66,6 +66,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bot.cs" />
+    <Compile Include="Handlers\OnConnected.cs" />
+    <Compile Include="Handlers\OnDisconnected.cs" />
+    <Compile Include="Handlers\OnFriendMsg.cs" />
+    <Compile Include="Handlers\OnFriendsList.cs" />
+    <Compile Include="Handlers\OnLoggedOff.cs" />
+    <Compile Include="Handlers\OnLoggedOn.cs" />
+    <Compile Include="Handlers\OnLoginKey.cs" />
+    <Compile Include="Handlers\OnUpdateMachineAuth.cs" />
+    <Compile Include="Handlers\OnWebAPIUserNonce.cs" />
     <Compile Include="Inventory.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="PacketMsgHandler.cs" />
